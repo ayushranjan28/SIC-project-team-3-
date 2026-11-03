@@ -746,114 +746,6 @@
           <!-- Populated dynamically via /api/plots -->
         </div>
       </div>
-
-      <!-- Figure Lightbox Modal -->
-      <div id="imageModal" class="modal-backdrop">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h3 id="modalTitle">Figure Preview</h3>
-            <button class="modal-close" id="modalClose">&times;</button>
-          </div>
-          <div class="modal-body">
-            <img id="modalImg" src="" alt="Research Figure Enlarged">
-            <p id="modalCaption" class="modal-caption"></p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Smartwatch Connectivity Hub Modal -->
-      <div id="watchModal" class="modal-backdrop">
-        <div class="modal-content" style="max-width: 840px;">
-          <div class="modal-header">
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <span style="font-size: 1.5rem;">⌚</span>
-              <div>
-                <h3 style="margin: 0; font-size: 1.15rem;">Connect Smartwatch &amp; Live Ingestion Hub</h3>
-                <p style="margin: 0; font-size: 0.78rem; color: var(--text-secondary);">Stream real-time biometric telemetry directly into the PINN engine</p>
-              </div>
-            </div>
-            <button class="modal-close" id="watchModalClose">&times;</button>
-          </div>
-          <div class="modal-body" style="padding: 24px;">
-            <!-- Tabs inside Modal -->
-            <div class="watch-modal-tabs">
-              <button class="watch-modal-tab active" data-watchtab="ble">1. Direct Web Bluetooth (Zero Install)</button>
-              <button class="watch-modal-tab" data-watchtab="wifi">2. Local Wi-Fi Ingest Endpoint</button>
-              <button class="watch-modal-tab" data-watchtab="cli">3. Python Bridge / Simulator</button>
-            </div>
-
-            <!-- Tab 1: Web Bluetooth -->
-            <div class="watch-tab-content active" id="watchTabBLE">
-              <div class="connect-box">
-                <h4>🔵 1-Click Bluetooth Low Energy Connection</h4>
-                <p>
-                  Pairs directly with your smartwatch using the browser's native Web Bluetooth API (Google Chrome or Microsoft Edge). Zero software installation required.
-                </p>
-                <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap;">
-                  <button id="btnPairBluetoothWatch" class="btn btn-primary" style="padding: 10px 22px;">
-                    <span>🔍 Scan &amp; Pair Smartwatch</span>
-                  </button>
-                  <button id="btnDisconnectWatch" class="btn btn-secondary" style="display: none; padding: 10px 18px;">
-                    <span>❌ Disconnect</span>
-                  </button>
-                </div>
-                <div id="bleStatusBox" style="font-size: 0.82rem; padding: 12px 14px; background: rgba(6, 9, 17, 0.6); border-radius: 6px; border: 1px solid var(--border-subtle); color: var(--text-secondary);">
-                  <span>Ready to pair. Tap "Scan &amp; Pair Smartwatch" and choose your Samsung Galaxy Watch, Polar, or Garmin from the Chrome/Edge device picker.</span>
-                </div>
-              </div>
-              <div class="callout callout-info" style="font-size: 0.8rem; margin: 0;">
-                <strong>Supported Devices:</strong> Samsung Galaxy Watch 4/5/6/7 &amp; Ultra (via Wear OS Heart Rate Broadcaster app or standard BLE HR broadcast), Polar H10/Verity, Garmin wearables, Apple Watch (via BLE transmitter apps), and any standard Bluetooth SIG GATT Heart Rate device.
-              </div>
-            </div>
-
-            <!-- Tab 2: Wi-Fi Ingest Endpoint -->
-            <div class="watch-tab-content" id="watchTabWifi">
-              <div class="connect-box">
-                <h4>🌐 Local Network HTTP REST Ingest Endpoint</h4>
-                <p>
-                  Send biometric telemetry packets over local Wi-Fi from companion Wear OS / Android apps (e.g. <em>Wearable Logger</em>, <em>Sensor Streamer</em>, or a custom watch background service).
-                </p>
-                <div class="endpoint-display">
-                  <span class="endpoint-url" id="ingestUrlText">http://10.168.207.145:8000/api/live/ingest</span>
-                  <button class="btn-copy-endpoint" id="btnCopyEndpoint">📋 Copy URL</button>
-                </div>
-                <p style="font-size: 0.8rem; margin-bottom: 8px;"><strong>Sample JSON Payload:</strong></p>
-                <pre style="background: rgba(6, 9, 17, 0.85); padding: 12px; border-radius: 6px; font-family: var(--font-mono); font-size: 0.78rem; color: #a5f3fc; overflow-x: auto;">
-{
-  "hr": 84.5,
-  "acc_x": 0.05,
-  "acc_y": 0.12,
-  "acc_z": 0.98,
-  "ppg_sqi": 0.92,
-  "device_name": "Samsung Galaxy Watch 6"
-}</pre>
-              </div>
-            </div>
-
-            <!-- Tab 3: Python Bridge / Simulator -->
-            <div class="watch-tab-content" id="watchTabCLI">
-              <div class="connect-box">
-                <h4>🐍 Python Desktop BLE Bridge</h4>
-                <p>
-                  Connect directly using the desktop Windows Bluetooth stack via the provided Python bridge script:
-                </p>
-                <div class="endpoint-display">
-                  <span class="endpoint-url">python scripts/smartwatch_ble_bridge.py --scan</span>
-                </div>
-                <p style="margin-top: 14px; margin-bottom: 12px;"><strong>Or run the Live Watch Stream Simulator right now:</strong></p>
-                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                  <button id="btnTriggerSimStream" class="btn btn-primary" style="padding: 9px 18px;">
-                    <span id="btnTriggerSimText">▶ Start 1-Click Live Watch Simulator</span>
-                  </button>
-                  <button id="btnResetLiveBuffer" class="btn btn-secondary" style="padding: 9px 18px;">
-                    <span>🔄 Clear Live Buffer</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </main>
 
     <!-- ========================================================================= -->
@@ -981,6 +873,114 @@
         </div>
       </div>
     </main>
+
+      <!-- Figure Lightbox Modal -->
+      <div id="imageModal" class="modal-backdrop">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 id="modalTitle">Figure Preview</h3>
+            <button class="modal-close" id="modalClose">&times;</button>
+          </div>
+          <div class="modal-body">
+            <img id="modalImg" src="" alt="Research Figure Enlarged">
+            <p id="modalCaption" class="modal-caption"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Smartwatch Connectivity Hub Modal -->
+      <div id="watchModal" class="modal-backdrop">
+        <div class="modal-content" style="max-width: 840px;">
+          <div class="modal-header">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 1.5rem;">⌚</span>
+              <div>
+                <h3 style="margin: 0; font-size: 1.15rem;">Connect Smartwatch &amp; Live Ingestion Hub</h3>
+                <p style="margin: 0; font-size: 0.78rem; color: var(--text-secondary);">Stream real-time biometric telemetry directly into the PINN engine</p>
+              </div>
+            </div>
+            <button class="modal-close" id="watchModalClose">&times;</button>
+          </div>
+          <div class="modal-body" style="padding: 24px;">
+            <!-- Tabs inside Modal -->
+            <div class="watch-modal-tabs">
+              <button class="watch-modal-tab active" data-watchtab="ble">1. Direct Web Bluetooth (Zero Install)</button>
+              <button class="watch-modal-tab" data-watchtab="wifi">2. Local Wi-Fi Ingest Endpoint</button>
+              <button class="watch-modal-tab" data-watchtab="cli">3. Python Bridge / Simulator</button>
+            </div>
+
+            <!-- Tab 1: Web Bluetooth -->
+            <div class="watch-tab-content active" id="watchTabBLE">
+              <div class="connect-box">
+                <h4>🔵 1-Click Bluetooth Low Energy Connection</h4>
+                <p>
+                  Pairs directly with your smartwatch using the browser's native Web Bluetooth API (Google Chrome or Microsoft Edge). Zero software installation required.
+                </p>
+                <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap;">
+                  <button id="btnPairBluetoothWatch" class="btn btn-primary" style="padding: 10px 22px;">
+                    <span>🔍 Scan &amp; Pair Smartwatch</span>
+                  </button>
+                  <button id="btnDisconnectWatch" class="btn btn-secondary" style="display: none; padding: 10px 18px;">
+                    <span>❌ Disconnect</span>
+                  </button>
+                </div>
+                <div id="bleStatusBox" style="font-size: 0.82rem; padding: 12px 14px; background: rgba(6, 9, 17, 0.6); border-radius: 6px; border: 1px solid var(--border-subtle); color: var(--text-secondary);">
+                  <span>Ready to pair. Tap "Scan &amp; Pair Smartwatch" and choose your Samsung Galaxy Watch, Polar, or Garmin from the Chrome/Edge device picker.</span>
+                </div>
+              </div>
+              <div class="callout callout-info" style="font-size: 0.8rem; margin: 0;">
+                <strong>Supported Devices:</strong> Samsung Galaxy Watch 4/5/6/7 &amp; Ultra (via Wear OS Heart Rate Broadcaster app or standard BLE HR broadcast), Polar H10/Verity, Garmin wearables, Apple Watch (via BLE transmitter apps), and any standard Bluetooth SIG GATT Heart Rate device.
+              </div>
+            </div>
+
+            <!-- Tab 2: Wi-Fi Ingest Endpoint -->
+            <div class="watch-tab-content" id="watchTabWifi">
+              <div class="connect-box">
+                <h4>🌐 Local Network HTTP REST Ingest Endpoint</h4>
+                <p>
+                  Send biometric telemetry packets over local Wi-Fi from companion Wear OS / Android apps (e.g. <em>Wearable Logger</em>, <em>Sensor Streamer</em>, or a custom watch background service).
+                </p>
+                <div class="endpoint-display">
+                  <span class="endpoint-url" id="ingestUrlText">http://10.168.207.145:8000/api/live/ingest</span>
+                  <button class="btn-copy-endpoint" id="btnCopyEndpoint">📋 Copy URL</button>
+                </div>
+                <p style="font-size: 0.8rem; margin-bottom: 8px;"><strong>Sample JSON Payload:</strong></p>
+                <pre style="background: rgba(6, 9, 17, 0.85); padding: 12px; border-radius: 6px; font-family: var(--font-mono); font-size: 0.78rem; color: #a5f3fc; overflow-x: auto;">
+{
+  "hr": 84.5,
+  "acc_x": 0.05,
+  "acc_y": 0.12,
+  "acc_z": 0.98,
+  "ppg_sqi": 0.92,
+  "device_name": "Samsung Galaxy Watch 6"
+}</pre>
+              </div>
+            </div>
+
+            <!-- Tab 3: Python Bridge / Simulator -->
+            <div class="watch-tab-content" id="watchTabCLI">
+              <div class="connect-box">
+                <h4>🐍 Python Desktop BLE Bridge</h4>
+                <p>
+                  Connect directly using the desktop Windows Bluetooth stack via the provided Python bridge script:
+                </p>
+                <div class="endpoint-display">
+                  <span class="endpoint-url">python scripts/smartwatch_ble_bridge.py --scan</span>
+                </div>
+                <p style="margin-top: 14px; margin-bottom: 12px;"><strong>Or run the Live Watch Stream Simulator right now:</strong></p>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                  <button id="btnTriggerSimStream" class="btn btn-primary" style="padding: 9px 18px;">
+                    <span id="btnTriggerSimText">▶ Start 1-Click Live Watch Simulator</span>
+                  </button>
+                  <button id="btnResetLiveBuffer" class="btn btn-secondary" style="padding: 9px 18px;">
+                    <span>🔄 Clear Live Buffer</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
     <!-- Footer Section -->
     <footer class="app-footer">

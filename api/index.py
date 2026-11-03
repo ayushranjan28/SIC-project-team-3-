@@ -56,3 +56,4 @@ def api_alias_live_reset():
 def api_alias_live_status():
     from dashboard.server import get_live_status
     return get_live_status()
+

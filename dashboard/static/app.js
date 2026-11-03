@@ -309,52 +309,60 @@ function setOperatingMode(mode) {
  */
 function setupSmartwatchModal() {
   const openModal = () => {
-    if (DOM.watchModal) DOM.watchModal.classList.add('active');
+    const modal = document.getElementById('watchModal');
+    if (modal) modal.classList.add('active');
   };
   const closeModal = () => {
-    if (DOM.watchModal) DOM.watchModal.classList.remove('active');
+    const modal = document.getElementById('watchModal');
+    if (modal) modal.classList.remove('active');
   };
 
-  if (DOM.btnOpenWatchModal) DOM.btnOpenWatchModal.addEventListener('click', openModal);
-  if (DOM.btnQuickWatchModal) DOM.btnQuickWatchModal.addEventListener('click', openModal);
-  if (DOM.watchModalClose) DOM.watchModalClose.addEventListener('click', closeModal);
-
-  if (DOM.watchModal) {
-    DOM.watchModal.addEventListener('click', (e) => {
-      if (e.target === DOM.watchModal) closeModal();
-    });
-  }
+  // Robust document-level click listener for open / close actions
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#btnOpenWatchModal') || e.target.closest('#btnQuickWatchModal')) {
+      openModal();
+    }
+    if (e.target.closest('#watchModalClose')) {
+      closeModal();
+    }
+    const modal = document.getElementById('watchModal');
+    if (modal && e.target === modal) {
+      closeModal();
+    }
+  });
 
   // Modal Internal Tabs
-  if (DOM.watchModalTabs) {
-    DOM.watchModalTabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        const target = tab.getAttribute('data-watchtab');
-        DOM.watchModalTabs.forEach(t => t.classList.remove('active'));
-        DOM.watchTabContents.forEach(c => c.classList.remove('active'));
-        tab.classList.add('active');
+  const modalTabs = document.querySelectorAll('.watch-modal-tab');
+  const tabContents = document.querySelectorAll('.watch-tab-content');
+  modalTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.getAttribute('data-watchtab');
+      modalTabs.forEach(t => t.classList.remove('active'));
+      tabContents.forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
 
-        if (target === 'ble') {
-          const el = document.getElementById('watchTabBLE');
-          if (el) el.classList.add('active');
-        } else if (target === 'wifi') {
-          const el = document.getElementById('watchTabWifi');
-          if (el) el.classList.add('active');
-        } else if (target === 'cli') {
-          const el = document.getElementById('watchTabCLI');
-          if (el) el.classList.add('active');
-        }
-      });
+      if (target === 'ble') {
+        const el = document.getElementById('watchTabBLE');
+        if (el) el.classList.add('active');
+      } else if (target === 'wifi') {
+        const el = document.getElementById('watchTabWifi');
+        if (el) el.classList.add('active');
+      } else if (target === 'cli') {
+        const el = document.getElementById('watchTabCLI');
+        if (el) el.classList.add('active');
+      }
     });
-  }
+  });
 
   // Copy Endpoint URL
-  if (DOM.btnCopyEndpoint && DOM.ingestUrlText) {
-    DOM.btnCopyEndpoint.addEventListener('click', () => {
-      const url = DOM.ingestUrlText.textContent.trim();
+  const btnCopy = document.getElementById('btnCopyEndpoint');
+  const ingestText = document.getElementById('ingestUrlText');
+  if (btnCopy && ingestText) {
+    btnCopy.addEventListener('click', () => {
+      const url = ingestText.textContent.trim();
       navigator.clipboard.writeText(url).then(() => {
-        DOM.btnCopyEndpoint.textContent = '✓ Copied!';
-        setTimeout(() => { DOM.btnCopyEndpoint.textContent = '📋 Copy URL'; }, 2000);
+        btnCopy.textContent = '✓ Copied!';
+        setTimeout(() => { btnCopy.textContent = '📋 Copy URL'; }, 2000);
       }).catch(err => {
         console.error('Failed to copy URL:', err);
       });
@@ -362,19 +370,23 @@ function setupSmartwatchModal() {
   }
 
   // Web Bluetooth Pairing
-  if (DOM.btnPairBluetoothWatch) {
-    DOM.btnPairBluetoothWatch.addEventListener('click', connectWebBluetooth);
+  const btnPair = document.getElementById('btnPairBluetoothWatch');
+  if (btnPair) {
+    btnPair.addEventListener('click', connectWebBluetooth);
   }
-  if (DOM.btnDisconnectWatch) {
-    DOM.btnDisconnectWatch.addEventListener('click', disconnectWebBluetooth);
+  const btnDisc = document.getElementById('btnDisconnectWatch');
+  if (btnDisc) {
+    btnDisc.addEventListener('click', disconnectWebBluetooth);
   }
 
   // Live Simulator Trigger
-  if (DOM.btnTriggerSimStream) {
-    DOM.btnTriggerSimStream.addEventListener('click', toggleSimulatorStream);
+  const btnSim = document.getElementById('btnTriggerSimStream');
+  if (btnSim) {
+    btnSim.addEventListener('click', toggleSimulatorStream);
   }
-  if (DOM.btnResetLiveBuffer) {
-    DOM.btnResetLiveBuffer.addEventListener('click', resetLiveBuffer);
+  const btnResetLive = document.getElementById('btnResetLiveBuffer');
+  if (btnResetLive) {
+    btnResetLive.addEventListener('click', resetLiveBuffer);
   }
 }
 
@@ -383,30 +395,72 @@ function setupSmartwatchModal() {
  * Implements standard Bluetooth GATT Heart Rate Profile (0x180D -> 0x2A37)
  */
 async function connectWebBluetooth() {
+  const statusBox = document.getElementById('bleStatusBox');
+  const btnPair = document.getElementById('btnPairBluetoothWatch');
+  const btnDisc = document.getElementById('btnDisconnectWatch');
+
   if (!navigator.bluetooth) {
-    if (DOM.bleStatusBox) {
-      DOM.bleStatusBox.innerHTML = '<span style="color: #f43f5e;">Web Bluetooth is not supported in this browser. Please open this page in Google Chrome or Microsoft Edge (Windows, Android, Mac). Alternatively, use the Wi-Fi Ingest endpoint or Python bridge.</span>';
+    if (statusBox) {
+      statusBox.innerHTML = `
+        <div style="color: #fbbf24; font-weight: 600; margin-bottom: 6px;">⚠️ Web Bluetooth Not Available in Current Context</div>
+        <div style="color: var(--text-secondary); line-height: 1.5; font-size: 0.82rem;">
+          Google Chrome and Microsoft Edge restrict Web Bluetooth to <strong>Secure Contexts</strong> (HTTPS or <code>http://localhost:8000</code>).<br>
+          👉 <strong>How to connect immediately:</strong>
+          <ul style="margin: 6px 0 0 16px; line-height: 1.6;">
+            <li>If accessing on this PC, make sure you open <strong><code>http://localhost:8000</code></strong>.</li>
+            <li>If accessing from another device on local Wi-Fi, use <strong>"2. Local Wi-Fi Ingest Endpoint"</strong>.</li>
+            <li>To demonstrate live physiological difference right now, click <strong>"3. Python Bridge / Simulator"</strong> and tap <strong>"▶ Start 1-Click Live Watch Simulator"</strong>!</li>
+          </ul>
+        </div>
+      `;
     }
     return;
   }
 
   try {
-    if (DOM.bleStatusBox) {
-      DOM.bleStatusBox.innerHTML = '<span style="color: var(--accent-cyan);">Requesting Bluetooth pairing dialog... Please select your Galaxy Watch or HRM device.</span>';
+    if (statusBox) {
+      statusBox.innerHTML = '<span style="color: var(--accent-cyan); font-weight: 600;">📡 Scanning for nearby Bluetooth smartwatches... Please choose your watch in the browser prompt.</span>';
     }
 
-    const device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: ['heart_rate'] }],
-      optionalServices: ['battery_service']
-    });
+    let device = null;
+    try {
+      device = await navigator.bluetooth.requestDevice({
+        filters: [{ services: ['heart_rate'] }],
+        optionalServices: ['battery_service', 0x180D, 0x180F]
+      });
+    } catch (filterErr) {
+      if (filterErr.name === 'NotFoundError') {
+        if (statusBox) statusBox.innerHTML = '<span style="color: var(--text-secondary);">Device selection was cancelled. Ready to scan again.</span>';
+        return;
+      }
+      // If service filter failed, try broader acceptAllDevices
+      device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: ['heart_rate', 'battery_service', 0x180D, 0x180F]
+      });
+    }
 
-    if (DOM.bleStatusBox) {
-      DOM.bleStatusBox.innerHTML = `<span style="color: var(--accent-cyan);">Connecting to ${device.name || 'Wearable'}...</span>`;
+    if (!device) return;
+
+    if (statusBox) {
+      statusBox.innerHTML = `<span style="color: var(--accent-cyan);">Connecting to GATT server on <strong>${device.name || 'Wearable'}</strong>...</span>`;
     }
 
     const server = await device.gatt.connect();
-    const service = await server.getPrimaryService('heart_rate');
-    const characteristic = await service.getCharacteristic('heart_rate_measurement');
+
+    let service = null;
+    try {
+      service = await server.getPrimaryService('heart_rate');
+    } catch (e1) {
+      service = await server.getPrimaryService(0x180D);
+    }
+
+    let characteristic = null;
+    try {
+      characteristic = await service.getCharacteristic('heart_rate_measurement');
+    } catch (e2) {
+      characteristic = await service.getCharacteristic(0x2A37);
+    }
 
     await characteristic.startNotifications();
     characteristic.addEventListener('characteristicvaluechanged', handleBluetoothHeartRateNotification);
@@ -418,23 +472,21 @@ async function connectWebBluetooth() {
     state.liveWatch.characteristic = characteristic;
     state.liveWatch.deviceName = device.name || "Samsung Galaxy Watch";
 
-    // UI Updates
-    if (DOM.btnDisconnectWatch) DOM.btnDisconnectWatch.style.display = 'inline-block';
-    if (DOM.btnPairBluetoothWatch) DOM.btnPairBluetoothWatch.style.display = 'none';
+    if (btnDisc) btnDisc.style.display = 'inline-block';
+    if (btnPair) btnPair.style.display = 'none';
     if (DOM.watchBtnText) DOM.watchBtnText.textContent = `🟢 ${state.liveWatch.deviceName}`;
     if (DOM.watchPulseDot) DOM.watchPulseDot.classList.add('dot-live');
 
-    if (DOM.bleStatusBox) {
-      DOM.bleStatusBox.innerHTML = `<span style="color: var(--accent-emerald);">✓ Connected to <strong>${state.liveWatch.deviceName}</strong>! Receiving live optical PPG packets.</span>`;
+    if (statusBox) {
+      statusBox.innerHTML = `<span style="color: var(--accent-emerald); font-weight: 600;">✓ Connected to <strong>${state.liveWatch.deviceName}</strong>! Receiving live optical PPG packets.</span>`;
     }
 
-    // Switch to live stream mode
     setOperatingMode('live');
 
   } catch (err) {
     console.error('Bluetooth connection failed:', err);
-    if (DOM.bleStatusBox) {
-      DOM.bleStatusBox.innerHTML = `<span style="color: #f43f5e;">Pairing cancelled or failed: ${err.message}. Ensure your watch has Bluetooth HR broadcasting turned on.</span>`;
+    if (statusBox) {
+      statusBox.innerHTML = `<span style="color: #f43f5e; font-weight: 500;">❌ Pairing error: ${err.message}. Ensure your watch has Heart Rate broadcasting active.</span>`;
     }
   }
 }
@@ -453,7 +505,6 @@ function handleBluetoothHeartRateNotification(event) {
   const contactDetected = Boolean(flags & 0x2);
   const sqi = contactDetected ? 0.95 : 0.45;
 
-  // Post live telemetry sample to server
   postLiveTelemetrySample({
     hr: hr,
     acc_x: 0.05,
@@ -469,13 +520,16 @@ function onBluetoothDisconnected() {
   state.liveWatch.device = null;
   state.liveWatch.characteristic = null;
 
-  if (DOM.btnDisconnectWatch) DOM.btnDisconnectWatch.style.display = 'none';
-  if (DOM.btnPairBluetoothWatch) DOM.btnPairBluetoothWatch.style.display = 'inline-block';
+  const btnPair = document.getElementById('btnPairBluetoothWatch');
+  const btnDisc = document.getElementById('btnDisconnectWatch');
+  if (btnDisc) btnDisc.style.display = 'none';
+  if (btnPair) btnPair.style.display = 'inline-block';
   if (DOM.watchBtnText) DOM.watchBtnText.textContent = '⌚ Connect Smartwatch';
   if (DOM.watchPulseDot) DOM.watchPulseDot.classList.remove('dot-live');
 
-  if (DOM.bleStatusBox) {
-    DOM.bleStatusBox.innerHTML = '<span style="color: var(--accent-amber);">Watch disconnected. Ready to re-pair.</span>';
+  const statusBox = document.getElementById('bleStatusBox');
+  if (statusBox) {
+    statusBox.innerHTML = '<span style="color: var(--accent-amber);">Watch disconnected. Ready to re-pair.</span>';
   }
 }
 
@@ -590,11 +644,14 @@ function stopSimulatorStream() {
 
 async function postLiveTelemetrySample(payload) {
   try {
-    await fetch('/api/live/ingest', {
+    const res = await fetch('/api/live/ingest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+    if (res.ok && state.mode === 'live') {
+      fetchLiveTelemetry();
+    }
   } catch (err) {
     console.warn('Failed to post live sample:', err);
   }

@@ -14,3 +14,4 @@ EXPOSE 8000
 
 # Start FastAPI server
 CMD ["uvicorn", "dashboard.server:app", "--host", "0.0.0.0", "--port", "8000"]
+
