@@ -1,0 +1,321 @@
+"""
+Samsung Galaxy Health - Smartwatch BLE Bridge & Live Telemetry Streamer
+Connects to Samsung Galaxy Watch or any BLE Heart Rate monitor (Polar, Garmin, Apple Watch)
+and streams live biometric readings directly into the PINN Telemetry Server.
+
+Usage:
+  python scripts/smartwatch_ble_bridge.py --scan
+  python scripts/smartwatch_ble_bridge.py --address "XX:XX:XX:XX:XX:XX"
+  python scripts/smartwatch_ble_bridge.py --simulate
+"""
+
+import sys
+import os
+import time
+import math
+import random
+import argparse
+import asyncio
+import urllib.request
+import json
+
+# Standard Bluetooth SIG UUIDs
+HR_SERVICE_UUID = "0000180d-0000-1000-8000-00805f9b34fb"
+HR_MEASUREMENT_CHAR_UUID = "00002a37-0000-1000-8000-00805f9b34fb"
+BATTERY_LEVEL_CHAR_UUID = "00002a19-0000-1000-8000-00805f9b34fb"
+
+DEFAULT_SERVER_URL = "http://127.0.0.1:8000/api/live/ingest"
+
+def post_telemetry(payload: dict, server_url: str = DEFAULT_SERVER_URL) -> bool:
+    """Post biometric packet to FastAPI server."""
+    try:
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            server_url,
+            data=data,
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=1.5) as resp:
+            return resp.status == 200
+    except Exception as e:
+        # Server might be starting or unreachable
+        return False
+
+def parse_heart_rate_packet(data: bytearray) -> dict:
+    """
+    Parse standard Bluetooth GATT Heart Rate Measurement Characteristic (0x2A37).
+    Standard specification:
+      - Byte 0: Flags
+        - Bit 0: Heart Rate Format (0 = UINT8, 1 = UINT16)
+        - Bit 1-2: Sensor Contact Status
+        - Bit 3: Energy Expended Present
+        - Bit 4: RR-Interval Present
+    """
+    flags = data[0]
+    hr_format = flags & 0x01
+    contact_detected = bool(flags & 0x02)
+    contact_supported = bool(flags & 0x04)
+    energy_present = bool(flags & 0x08)
+    rr_present = bool(flags & 0x10)
+
+    offset = 1
+    if hr_format == 0:
+        hr = data[offset]
+        offset += 1
+    else:
+        hr = data[offset] | (data[offset + 1] << 8)
+        offset += 2
+
+    energy = None
+    if energy_present and len(data) >= offset + 2:
+        energy = data[offset] | (data[offset + 1] << 8)
+        offset += 2
+
+    rr_intervals = []
+    if rr_present:
+        while offset + 1 < len(data):
+            rr = (data[offset] | (data[offset + 1] << 8)) / 1024.0 # in seconds
+            rr_intervals.append(round(rr * 1000, 1)) # ms
+            offset += 2
+
+    return {
+        "hr": float(hr),
+        "sensor_contact": contact_detected if contact_supported else True,
+        "energy_kcal": energy,
+        "rr_ms": rr_intervals
+    }
+
+async def scan_ble_devices(timeout: float = 4.0):
+    """Scan for nearby Bluetooth Low Energy devices advertising Heart Rate service."""
+    try:
+        import bleak
+    except ImportError:
+        print("[ERROR] bleak library not found. Run: pip install bleak")
+        return []
+
+    print(f"\n[BLUETOOTH] Scanning for nearby BLE smartwatches ({timeout:.0f}s)...")
+    devices = await bleak.BleakScanner.discover(timeout=timeout, return_adv=True)
+    
+    found_devices = []
+    for address, (device, adv) in devices.items():
+        name = device.name or adv.local_name or "Unknown Wearable"
+        services = adv.service_uuids or []
+        has_hr = any(HR_SERVICE_UUID.lower() in str(s).lower() or "180d" in str(s).lower() for s in services)
+        
+        found_devices.append({
+            "name": name,
+            "address": address,
+            "rssi": adv.rssi,
+            "has_hr": has_hr,
+            "services": services
+        })
+        
+        tag = " [HEART RATE GATT DETECTED]" if has_hr else ""
+        print(f"  -> {name} ({address}) | RSSI: {adv.rssi} dBm{tag}")
+
+    print(f"[BLUETOOTH] Scan complete. Found {len(found_devices)} total BLE devices.\n")
+    return found_devices
+
+async def run_ble_client(address: str, device_name: str = "Samsung Galaxy Watch", server_url: str = DEFAULT_SERVER_URL):
+    """Connect to a BLE Smartwatch and stream real-time GATT Heart Rate readings."""
+    try:
+        import bleak
+    except ImportError:
+        print("[ERROR] bleak is required. Install via: pip install bleak")
+        return
+
+    print(f"\n==================================================================")
+    print(f" Connecting to Wearable Device: {device_name} [{address}]")
+    print(f" Target Ingest Endpoint: {server_url}")
+    print(f"==================================================================\n")
+
+    last_hr = 70.0
+    sample_idx = 0
+
+    def notification_handler(sender, data: bytearray):
+        nonlocal last_hr, sample_idx
+        parsed = parse_heart_rate_packet(data)
+        hr_val = parsed["hr"]
+        last_hr = hr_val
+        sample_idx += 1
+
+        # Calculate estimated SQI based on sensor contact and physical continuity
+        sqi = 0.95 if parsed.get("sensor_contact", True) else 0.40
+        if sample_idx > 1 and abs(hr_val - last_hr) > 10.0:
+            sqi = max(0.20, sqi - 0.35)
+
+        payload = {
+            "hr": hr_val,
+            "acc_x": 0.05,
+            "acc_y": 0.10,
+            "acc_z": 0.99,
+            "acc_mag": 1.0,
+            "workload": 0.20,
+            "ppg_sqi": sqi,
+            "device_name": device_name,
+            "timestamp": time.time()
+        }
+
+        ok = post_telemetry(payload, server_url)
+        status_sym = "[OK]" if ok else "[ERR/OFFLINE]"
+        print(f" {status_sym} #{sample_idx:04d} | Live Optical PPG: {hr_val:5.1f} BPM | Contact: {parsed['sensor_contact']} | SQI: {sqi*100:.0f}%")
+
+    while True:
+        try:
+            async with bleak.BleakClient(address) as client:
+                connected = client.is_connected
+                if not connected:
+                    print(f"[RETRY] Failed to connect to {address}. Retrying in 3s...")
+                    await asyncio.sleep(3.0)
+                    continue
+
+                print(f"[CONNECTED] Paired to {device_name} successfully!")
+                print(f"[STREAM] Subscribing to GATT Heart Rate notifications (UUID 0x2A37)...")
+                
+                await client.start_notify(HR_MEASUREMENT_CHAR_UUID, notification_handler)
+                print(f"[RUNNING] Live optical telemetry streaming active. Press Ctrl+C to terminate.\n")
+
+                while client.is_connected:
+                    await asyncio.sleep(1.0)
+
+        except asyncio.CancelledError:
+            print("\n[STOP] Telemetry stream stopped by user.")
+            break
+        except Exception as e:
+            print(f"[BLE ERROR] Disconnection or transmission drop: {e}")
+            print(f"[RETRY] Attempting auto-reconnect in 4.0s...")
+            await asyncio.sleep(4.0)
+
+def run_simulation_stream(device_name: str = "Samsung Galaxy Watch6 Live Simulator", server_url: str = DEFAULT_SERVER_URL):
+    """
+    Simulates a live smartwatch streaming realistic optical PPG with motion spikes,
+    acceleration bursts, and recovery, forwarding packets to the FastAPI server at 1 Hz.
+    """
+    print(f"\n==================================================================")
+    print(f" STARTING REAL-TIME SMARTWATCH STREAM SIMULATOR (1.0 Hz)")
+    print(f" Device Identity : {device_name}")
+    print(f" Ingestion Target : {server_url}")
+    print(f"==================================================================")
+    print(f"Demonstrates the real-time 'Data Difference' between:")
+    print(f"  1. Raw Optical PPG (with motion artifact corruption & optical slippage)")
+    print(f"  2. Baseline Deep Learning (unbounded, tracks false motion spikes)")
+    print(f"  3. Physics-Informed Neural Network (Biophysical ODE guardrails)")
+    print(f"------------------------------------------------------------------\n")
+
+    t = 0
+    hr_clean = 72.0
+    hr_rest = 68.0
+    tau = 45.0
+    beta = 18.0
+
+    try:
+        while True:
+            t += 1
+            # Dynamic workout progression
+            if t < 20:
+                # Resting baseline
+                workout_phase = "Resting Baseline"
+                workload = 0.05 + 0.02 * math.sin(t * 0.2)
+                acc_x, acc_y, acc_z = 0.02, 0.03, 0.99
+                has_artifact = False
+            elif t < 65:
+                # Treadmill Warmup & Run
+                workout_phase = "Treadmill Run (High Exertion)"
+                workload = min(0.88, 0.15 + (t - 20) * 0.025)
+                acc_x = 0.45 * math.sin(t * 1.8)
+                acc_y = 0.35 * math.cos(t * 1.8)
+                acc_z = 1.0 + 0.60 * math.sin(t * 3.6)
+                # Introduce wrist motion artifacts during running
+                has_artifact = (35 <= t <= 52)
+            elif t < 100:
+                # Active Recovery Cooldown
+                workout_phase = "Cardiovascular Recovery"
+                workload = max(0.08, 0.80 - (t - 65) * 0.03)
+                acc_x, acc_y, acc_z = 0.08, 0.06, 0.98
+                has_artifact = (80 <= t <= 86) # post-workout arm stretch
+            else:
+                # Reset cycle
+                t = 1
+                continue
+
+            acc_mag = math.sqrt(acc_x**2 + acc_y**2 + acc_z**2)
+
+            # Clean ground-truth physiological evolution via cardiovascular ODE
+            dhr = (-(hr_clean - hr_rest) / tau + beta * workload) * 1.0
+            hr_clean += dhr
+
+            # Observed Raw Optical PPG with sensor motion artifacts & baseline wander
+            hr_observed = hr_clean
+            if has_artifact:
+                # Severe optical cadence lock & motion surge (e.g. +18 to +28 BPM jump)
+                motion_noise = 22.0 * math.sin(t * 0.85) + 12.0 * math.cos(t * 1.4)
+                hr_observed += motion_noise
+                sqi = max(0.18, 0.42 - 0.08 * math.sin(t))
+            else:
+                sensor_noise = random.gauss(0, 0.8)
+                hr_observed += sensor_noise
+                sqi = min(0.96, 0.90 + 0.04 * math.cos(t * 0.3))
+
+            payload = {
+                "hr": round(hr_observed, 1),
+                "acc_x": round(acc_x, 3),
+                "acc_y": round(acc_y, 3),
+                "acc_z": round(acc_z, 3),
+                "acc_mag": round(acc_mag, 3),
+                "workload": round(workload, 3),
+                "ppg_sqi": round(sqi, 3),
+                "device_name": device_name,
+                "timestamp": round(time.time(), 2)
+            }
+
+            success = post_telemetry(payload, server_url)
+            status_tag = "[SENT -> FASTAPI]" if success else "[SERVER WAITING]"
+            noise_tag = " [MOTION ARTIFACT SURGE!]" if has_artifact else ""
+
+            print(f" {status_tag} t={t:03d}s | Phase: {workout_phase:<24} | Raw Watch PPG: {hr_observed:5.1f} BPM | True Phys: {hr_clean:5.1f} BPM | SQI: {sqi*100:4.1f}%{noise_tag}")
+            time.sleep(1.0)
+
+    except KeyboardInterrupt:
+        print("\n[STOP] Live watch simulator stopped.")
+
+def main():
+    parser = argparse.ArgumentParser(description="Samsung Galaxy Health Smartwatch BLE Bridge")
+    parser.add_argument("--scan", action="store_true", help="Scan for nearby BLE smartwatches")
+    parser.add_argument("--address", type=str, default=None, help="MAC Address or UUID of BLE smartwatch")
+    parser.add_argument("--name", type=str, default="Samsung Galaxy Watch", help="Device friendly name")
+    parser.add_argument("--simulate", action="store_true", help="Run realistic real-time 1 Hz smartwatch live stream")
+    parser.add_argument("--server", type=str, default=DEFAULT_SERVER_URL, help="FastAPI ingest endpoint")
+
+    args = parser.parse_args()
+
+    if args.scan:
+        asyncio.run(scan_ble_devices())
+    elif args.address:
+        asyncio.run(run_ble_client(args.address, args.name, args.server))
+    elif args.simulate:
+        run_simulation_stream(args.name, args.server)
+    else:
+        # If no arguments provided, show interactive prompt
+        print("\n=======================================================")
+        print(" Samsung Galaxy Health - Wearable Live Telemetry Bridge")
+        print("=======================================================")
+        print(" Choose an option:")
+        print("   1. Scan nearby Bluetooth Low Energy smartwatches")
+        print("   2. Run Live 1 Hz Smartwatch Stream Simulator (Demonstration)")
+        print("   3. Connect to specific device address")
+        print("   4. Exit")
+        choice = input("Enter selection [1-4] (default: 2): ").strip()
+        if choice == "1":
+            asyncio.run(scan_ble_devices())
+        elif choice == "3":
+            addr = input("Enter Bluetooth MAC address (e.g. C4:64:E3:XX:XX:XX): ").strip()
+            if addr:
+                asyncio.run(run_ble_client(addr, args.name, args.server))
+        elif choice == "4":
+            print("Exiting.")
+        else:
+            run_simulation_stream(args.name, args.server)
+
+if __name__ == "__main__":
+    main()
+

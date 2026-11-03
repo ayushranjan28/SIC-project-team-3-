@@ -1,0 +1,206 @@
+{
+  "Dataset_Evaluations": {
+    "Wrist_PPG_Exercise (PhysioNet)": {
+      "Proposed_PINN": {
+        "MAE": 4.657,
+        "RMSE": 8.468,
+        "Median_AE": 2.713,
+        "Physiological_Violation_Pct": 4.31,
+        "Physics_Residual_BPM_s": 3.619,
+        "PICP_95_Pct": 88.79,
+        "MPIW_95": 15.57,
+        "Latency_ms": 0.2281,
+        "Parameters": 31972,
+        "Tau_Recovery_Sec": 18.31,
+        "Beta_Workload_Gain": 3.31
+      },
+      "Baseline_GRU": {
+        "MAE": 4.309,
+        "RMSE": 9.599,
+        "Median_AE": 2.024,
+        "Physiological_Violation_Pct": 5.85,
+        "Physics_Residual_BPM_s": 0.0,
+        "PICP_95_Pct": 48.88,
+        "MPIW_95": 3.92,
+        "Latency_ms": 0.1729,
+        "Parameters": 23089,
+        "Tau_Recovery_Sec": null,
+        "Beta_Workload_Gain": null
+      }
+    },
+    "IEEE_SPC_2015 (Treadmill Sprint)": {
+      "Proposed_PINN": {
+        "MAE": 7.568,
+        "RMSE": 9.839,
+        "Median_AE": 6.093,
+        "Physiological_Violation_Pct": 53.62,
+        "Physics_Residual_BPM_s": 7.424,
+        "PICP_95_Pct": 76.21,
+        "MPIW_95": 17.55,
+        "Latency_ms": 0.1979,
+        "Parameters": 31972,
+        "Tau_Recovery_Sec": 18.31,
+        "Beta_Workload_Gain": 3.31
+      },
+      "Baseline_GRU": {
+        "MAE": 12.451,
+        "RMSE": 16.069,
+        "Median_AE": 9.793,
+        "Physiological_Violation_Pct": 63.26,
+        "Physics_Residual_BPM_s": 0.0,
+        "PICP_95_Pct": 12.63,
+        "MPIW_95": 3.92,
+        "Latency_ms": 0.1713,
+        "Parameters": 23089,
+        "Tau_Recovery_Sec": null,
+        "Beta_Workload_Gain": null
+      }
+    },
+    "PAMAP2 (12 Daily Activities)": {
+      "Proposed_PINN": {
+        "MAE": 3.811,
+        "RMSE": 6.6,
+        "Median_AE": 2.306,
+        "Physiological_Violation_Pct": 11.83,
+        "Physics_Residual_BPM_s": 4.615,
+        "PICP_95_Pct": 93.3,
+        "MPIW_95": 16.09,
+        "Latency_ms": 0.2056,
+        "Parameters": 31972,
+        "Tau_Recovery_Sec": 18.31,
+        "Beta_Workload_Gain": 3.31
+      },
+      "Baseline_GRU": {
+        "MAE": 4.272,
+        "RMSE": 9.263,
+        "Median_AE": 1.284,
+        "Physiological_Violation_Pct": 15.44,
+        "Physics_Residual_BPM_s": 0.0,
+        "PICP_95_Pct": 64.08,
+        "MPIW_95": 3.92,
+        "Latency_ms": 0.1709,
+        "Parameters": 23089,
+        "Tau_Recovery_Sec": null,
+        "Beta_Workload_Gain": null
+      }
+    },
+    "Pulse_Transit_Time_PPG (Postures)": {
+      "Proposed_PINN": {
+        "MAE": 2.798,
+        "RMSE": 6.073,
+        "Median_AE": 1.663,
+        "Physiological_Violation_Pct": 0.32,
+        "Physics_Residual_BPM_s": 1.129,
+        "PICP_95_Pct": 95.55,
+        "MPIW_95": 14.31,
+        "Latency_ms": 0.2148,
+        "Parameters": 31972,
+        "Tau_Recovery_Sec": 18.31,
+        "Beta_Workload_Gain": 3.31
+      },
+      "Baseline_GRU": {
+        "MAE": 2.613,
+        "RMSE": 5.558,
+        "Median_AE": 1.64,
+        "Physiological_Violation_Pct": 1.66,
+        "Physics_Residual_BPM_s": 0.0,
+        "PICP_95_Pct": 56.59,
+        "MPIW_95": 3.92,
+        "Latency_ms": 0.1813,
+        "Parameters": 23089,
+        "Tau_Recovery_Sec": null,
+        "Beta_Workload_Gain": null
+      }
+    }
+  },
+  "Activity_Scenario_Breakdown": {
+    "Proposed_PINN": {
+      "Resting_Baseline": {
+        "samples": 6560,
+        "MAE": 2.61,
+        "RMSE": 4.77,
+        "Violation_Pct": 2.39,
+        "PICP_95": 96.2
+      },
+      "Light_Daily_Living": {
+        "samples": 4781,
+        "MAE": 3.85,
+        "RMSE": 7.04,
+        "Violation_Pct": 3.58,
+        "PICP_95": 92.5
+      },
+      "Moderate_Aerobic": {
+        "samples": 1261,
+        "MAE": 5.9,
+        "RMSE": 7.84,
+        "Violation_Pct": 29.02,
+        "PICP_95": 88.3
+      },
+      "Vigorous_Exercise": {
+        "samples": 1429,
+        "MAE": 10.9,
+        "RMSE": 14.38,
+        "Violation_Pct": 69.63,
+        "PICP_95": 63.6
+      },
+      "Motion_Artifact_Surge": {
+        "samples": 787,
+        "MAE": 7.2,
+        "RMSE": 10.3,
+        "Violation_Pct": 32.4,
+        "PICP_95": 74.6
+      },
+      "Clean_Optical_PPG": {
+        "samples": 7297,
+        "MAE": 3.37,
+        "RMSE": 5.83,
+        "Violation_Pct": 8.11,
+        "PICP_95": 95.8
+      }
+    },
+    "Baseline_GRU": {
+      "Resting_Baseline": {
+        "samples": 6560,
+        "MAE": 2.68,
+        "RMSE": 5.81,
+        "Violation_Pct": 6.48,
+        "PICP_95": "N/A"
+      },
+      "Light_Daily_Living": {
+        "samples": 4781,
+        "MAE": 3.86,
+        "RMSE": 7.89,
+        "Violation_Pct": 8.87,
+        "PICP_95": "N/A"
+      },
+      "Moderate_Aerobic": {
+        "samples": 1261,
+        "MAE": 6.36,
+        "RMSE": 10.91,
+        "Violation_Pct": 26.01,
+        "PICP_95": "N/A"
+      },
+      "Vigorous_Exercise": {
+        "samples": 1429,
+        "MAE": 16.23,
+        "RMSE": 21.13,
+        "Violation_Pct": 67.95,
+        "PICP_95": "N/A"
+      },
+      "Motion_Artifact_Surge": {
+        "samples": 787,
+        "MAE": 12.61,
+        "RMSE": 16.76,
+        "Violation_Pct": 59.34,
+        "PICP_95": "N/A"
+      },
+      "Clean_Optical_PPG": {
+        "samples": 7297,
+        "MAE": 2.98,
+        "RMSE": 6.84,
+        "Violation_Pct": 7.73,
+        "PICP_95": "N/A"
+      }
+    }
+  }
+}

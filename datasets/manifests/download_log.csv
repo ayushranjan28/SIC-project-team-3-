@@ -1,0 +1,33 @@
+timestamp,dataset_name,filename,url,status,bytes_downloaded,total_expected,error_msg
+2026-11-01 12:28:42,IEEE_SPC_2015,competition_data.zip,https://github.com/zhilinzhang/IEEE-SP-Cup-2015-PPG-Dataset,SUCCESS,7922979,7922979,
+2026-11-01 12:28:42,IEEE_SPC_2015,Extra_TrainingData.zip,https://github.com/zhilinzhang/IEEE-SP-Cup-2015-PPG-Dataset,SUCCESS,420888,420888,
+2026-11-01 12:28:42,IEEE_SPC_2015,TestData.zip,https://github.com/zhilinzhang/IEEE-SP-Cup-2015-PPG-Dataset,SUCCESS,4898191,4898191,
+2026-11-01 12:28:42,IEEE_SPC_2015,TrueBPM.zip,https://github.com/zhilinzhang/IEEE-SP-Cup-2015-PPG-Dataset,SUCCESS,10074,10074,
+2026-11-01 12:30:12,Wrist_PPG_Exercise,wrist-ppg-during-exercise-1.0.0.zip,https://physionet.org/static/published-projects/wrist/wrist-ppg-during-exercise-1.0.0.zip,SUCCESS,52180873,52180873,
+2026-11-01 12:30:36,Pulse_Transit_Time_PPG,ANNOTATORS,https://physionet.org/files/pulse-transit-time-ppg/1.1.0/ANNOTATORS?download,SUCCESS,39,39,
+2026-11-01 12:30:41,Pulse_Transit_Time_PPG,LICENSE.txt,https://physionet.org/files/pulse-transit-time-ppg/1.1.0/LICENSE.txt?download,SUCCESS,25815,25815,
+2026-11-01 12:30:45,Pulse_Transit_Time_PPG,README.txt,https://physionet.org/files/pulse-transit-time-ppg/1.1.0/README.txt?download,SUCCESS,12258,12258,
+2026-11-01 12:30:49,Pulse_Transit_Time_PPG,RECORDS,https://physionet.org/files/pulse-transit-time-ppg/1.1.0/RECORDS?download,SUCCESS,523,523,
+2026-11-01 12:32:01,Pulse_Transit_Time_PPG,s10_run.csv,https://physionet.org/files/pulse-transit-time-ppg/1.1.0/csv/s10_run.csv?download,SUCCESS,40274538,40274538,
+2026-11-01 12:48:14,MIMIC_PERform,mimic_perform_train_all_wfdb.zip,https://zenodo.org/records/6950488/files/mimic_perform_train_all_wfdb.zip?download=1,FAILED_ACCESS_RESTRICTED,0,UNKNOWN,HTTP 403 Access Restricted / Unauthorized
+2026-11-01 12:49:31,MIMIC_PERform,mimic_perform_af_wfdb.zip,https://zenodo.org/records/6950488/files/mimic_perform_af_wfdb.zip?download=1,FAILED_ACCESS_RESTRICTED,0,UNKNOWN,HTTP 403 Access Restricted / Unauthorized
+2026-11-01 12:52:12,MIMIC_PERform,mimic_perform_train_all_wfdb.zip,https://zenodo.org/records/6950488/files/mimic_perform_train_all_wfdb.zip?download=1,SUCCESS,77734722,77734722,
+2026-11-01 12:53:39,MIMIC_PERform,mimic_perform_test_all_wfdb.zip,https://zenodo.org/records/6950488/files/mimic_perform_test_all_wfdb.zip?download=1,SUCCESS,77490020,77490020,
+2026-11-01 12:53:39,MIMIC_PERform,mimic_perform_non_af_wfdb.zip,https://zenodo.org/records/6950488/files/mimic_perform_non_af_wfdb.zip?download=1,ALREADY_EXISTS_VALID,10176150,10176150,
+2026-11-01 12:53:55,MIMIC_PERform,mimic_perform_af_wfdb.zip,https://zenodo.org/records/6950488/files/mimic_perform_af_wfdb.zip?download=1,SUCCESS,11874261,11874261,
+2026-11-01 12:54:29,MIMIC_PERform,mimic_perform_non_af_data.mat,https://zenodo.org/records/6950488/files/mimic_perform_non_af_data.mat?download=1,SUCCESS,17752712,17752712,
+2026-11-01 12:55:01,MIMIC_PERform,mimic_perform_af_data.mat,https://zenodo.org/records/6950488/files/mimic_perform_af_data.mat?download=1,SUCCESS,20603819,20603819,
+2026-11-01 13:27:53,PAMAP2,pamap2.zip,https://archive.ics.uci.edu/static/public/231/pamap2+physical+activity+monitoring.zip,SUCCESS,688226940,UNKNOWN,
+2026-11-01 13:57:31,WESAD,wesad.zip,https://uni-siegen.sciebo.de/s/HGdUkoNlW1Ub0Gx/download,RETRY_ERROR,0,UNKNOWN,"('Connection broken: IncompleteRead(285630532 bytes read, 1963813969 more expected)', IncompleteRead(285630532 bytes read, 1963813969 more expected))"
+2026-11-01 14:04:35,WESAD,wesad.zip,https://uni-siegen.sciebo.de/s/HGdUkoNlW1Ub0Gx/download,RETRY_ERROR,0,UNKNOWN,"('Connection broken: IncompleteRead(49199260 bytes read, 1915032569 more expected)', IncompleteRead(49199260 bytes read, 1915032569 more expected))"
+2026-11-01 14:10:24,WESAD,wesad.zip,https://uni-siegen.sciebo.de/s/HGdUkoNlW1Ub0Gx/download,RETRY_ERROR,0,UNKNOWN,"('Connection broken: IncompleteRead(40955904 bytes read, 1875041429 more expected)', IncompleteRead(40955904 bytes read, 1875041429 more expected))"
+2026-11-01 14:17:35,WESAD,wesad.zip,https://uni-siegen.sciebo.de/s/HGdUkoNlW1Ub0Gx/download,RETRY_ERROR,0,UNKNOWN,"('Connection broken: IncompleteRead(53451956 bytes read, 1821650913 more expected)', IncompleteRead(53451956 bytes read, 1821650913 more expected))"
+2026-11-01 14:44:47,WESAD,wesad.zip,https://uni-siegen.sciebo.de/s/HGdUkoNlW1Ub0Gx/download,RETRY_ERROR,0,UNKNOWN,"('Connection broken: IncompleteRead(1173934964 bytes read, 648739105 more expected)', IncompleteRead(1173934964 bytes read, 648739105 more expected))"
+2026-11-01 14:44:57,WESAD,wesad.zip,https://uni-siegen.sciebo.de/s/HGdUkoNlW1Ub0Gx/download,FAILED,0,UNKNOWN,Failed after 5 attempts
+2026-11-01 14:44:59,WESAD,wesad.zip,https://archive.ics.uci.edu/static/public/465/wesad+wearable+stress+and+affect+detection.zip,SUCCESS,1600127237,UNKNOWN,
+2026-11-01 14:50:22,PPG_DaLiA,ppg_dalia.zip,https://uni-siegen.sciebo.de/s/pfHzlTepXkiJ4jP/download,RETRY_ERROR,0,UNKNOWN,"('Connection broken: IncompleteRead(44830788 bytes read, 2819506995 more expected)', IncompleteRead(44830788 bytes read, 2819506995 more expected))"
+2026-11-01 14:58:17,PPG_DaLiA,ppg_dalia.zip,https://uni-siegen.sciebo.de/s/pfHzlTepXkiJ4jP/download,RETRY_ERROR,0,UNKNOWN,"('Connection broken: IncompleteRead(65925120 bytes read, 2754372471 more expected)', IncompleteRead(65925120 bytes read, 2754372471 more expected))"
+2026-11-01 15:03:48,PPG_DaLiA,ppg_dalia.zip,https://uni-siegen.sciebo.de/s/pfHzlTepXkiJ4jP/download,RETRY_ERROR,0,UNKNOWN,"('Connection broken: IncompleteRead(41021780 bytes read, 2714264099 more expected)', IncompleteRead(41021780 bytes read, 2714264099 more expected))"
+2026-11-01 15:23:45,PPG_DaLiA,ppg_dalia.zip,https://uni-siegen.sciebo.de/s/pfHzlTepXkiJ4jP/download,RETRY_ERROR,0,UNKNOWN,"('Connection broken: IncompleteRead(173735936 bytes read, 2540655479 more expected)', IncompleteRead(173735936 bytes read, 2540655479 more expected))"
+2026-11-01 15:29:52,PPG_DaLiA,ppg_dalia.zip,https://uni-siegen.sciebo.de/s/pfHzlTepXkiJ4jP/download,RETRY_ERROR,0,UNKNOWN,"('Connection broken: IncompleteRead(53387264 bytes read, 2487989111 more expected)', IncompleteRead(53387264 bytes read, 2487989111 more expected))"
+2026-11-01 15:30:02,PPG_DaLiA,ppg_dalia.zip,https://uni-siegen.sciebo.de/s/pfHzlTepXkiJ4jP/download,FAILED,0,UNKNOWN,Failed after 5 attempts

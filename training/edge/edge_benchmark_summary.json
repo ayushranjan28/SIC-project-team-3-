@@ -1,0 +1,24 @@
+{
+  "Target_Device": "Samsung Galaxy Watch / Wearable Edge CPU",
+  "FP32_Model": {
+    "File_Size_KB": 135.06,
+    "Inference_Latency_ms": 11.148,
+    "Throughput_inferences_per_sec": 89.7,
+    "MAE_BPM": 2.213,
+    "RMSE_BPM": 2.859,
+    "Boundary_Violation_Pct": 0.0
+  },
+  "INT8_Quantized_Model": {
+    "File_Size_KB": 58.04,
+    "Inference_Latency_ms": 8.733,
+    "Throughput_inferences_per_sec": 114.5,
+    "MAE_BPM": 2.021,
+    "RMSE_BPM": 2.624,
+    "Boundary_Violation_Pct": 0.0
+  },
+  "Improvements": {
+    "Size_Reduction_Pct": 57.0,
+    "Latency_Speedup": 1.28,
+    "MAE_Delta_BPM": -0.192
+  }
+}

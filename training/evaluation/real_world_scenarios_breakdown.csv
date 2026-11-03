@@ -1,0 +1,7 @@
+Scenario,Samples,PINN_MAE,GRU_MAE,PINN_Violations,GRU_Violations,PINN_PICP_95
+Resting Baseline,6560,2.61,2.68,2.39%,6.48%,96.2%
+Light Daily Living,4781,3.85,3.86,3.58%,8.87%,92.5%
+Moderate Aerobic,1261,5.9,6.36,29.02%,26.01%,88.3%
+Vigorous Exercise,1429,10.9,16.23,69.63%,67.95%,63.6%
+Motion Artifact Surge,787,7.2,12.61,32.4%,59.34%,74.6%
+Clean Optical PPG,7297,3.37,2.98,8.11%,7.73%,95.8%
