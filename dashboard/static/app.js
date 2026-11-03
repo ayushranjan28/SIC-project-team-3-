@@ -63,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupTabs();
   setupModeSwitcher();
   setupSmartwatchModal();
+  setupLiveControlDeck();
   setupScenarioPresets();
   setupPlaybackControls();
   setupSliders();
@@ -104,6 +105,24 @@ function cacheDOMElements() {
   DOM.btnTriggerSimStream = document.getElementById('btnTriggerSimStream');
   DOM.btnTriggerSimText = document.getElementById('btnTriggerSimText');
   DOM.btnResetLiveBuffer = document.getElementById('btnResetLiveBuffer');
+
+  // Dedicated Live Control Deck Elements
+  DOM.replayScenarioDeck = document.getElementById('replayScenarioDeck');
+  DOM.replayControlDeck = document.getElementById('replayControlDeck');
+  DOM.liveControlDeck = document.getElementById('liveControlDeck');
+  DOM.btnLiveConnectModal = document.getElementById('btnLiveConnectModal');
+  DOM.btnLiveTestStream = document.getElementById('btnLiveTestStream');
+  DOM.btnLiveTestIcon = document.getElementById('btnLiveTestIcon');
+  DOM.btnLiveTestText = document.getElementById('btnLiveTestText');
+  DOM.btnLiveResetBuffer = document.getElementById('btnLiveResetBuffer');
+  DOM.liveCardDevice = document.getElementById('liveCardDevice');
+  DOM.liveCardDeviceSub = document.getElementById('liveCardDeviceSub');
+  DOM.liveCardSamples = document.getElementById('liveCardSamples');
+  DOM.liveCardDuration = document.getElementById('liveCardDuration');
+  DOM.liveCardStatus = document.getElementById('liveCardStatus');
+  DOM.liveCardHeartbeat = document.getElementById('liveCardHeartbeat');
+  DOM.liveIngestCode = document.getElementById('liveIngestCode');
+  DOM.btnCopyLiveUrl = document.getElementById('btnCopyLiveUrl');
 
   // KPI Metrics Strip
   DOM.valHeartRate = document.getElementById('valHeartRate');
@@ -200,6 +219,9 @@ async function initTelemetryWorkstation() {
       if (DOM.ingestUrlText && state.config.ingest_url) {
         DOM.ingestUrlText.textContent = state.config.ingest_url;
       }
+      if (DOM.liveIngestCode && state.config.ingest_url) {
+        DOM.liveIngestCode.textContent = `POST ${state.config.ingest_url}`;
+      }
     }
   } catch (err) {
     console.warn('API config unavailable, using defaults', err);
@@ -269,6 +291,16 @@ function setOperatingMode(mode) {
       DOM.liveDeviceBadge.style.borderColor = 'rgba(0, 240, 255, 0.4)';
     }
 
+    // Toggle decks
+    if (DOM.replayScenarioDeck) DOM.replayScenarioDeck.style.display = '';
+    if (DOM.replayControlDeck) DOM.replayControlDeck.style.display = '';
+    if (DOM.liveControlDeck) DOM.liveControlDeck.style.display = 'none';
+
+    // Stop live test simulator if active
+    if (state.liveWatch.isSimulating) {
+      stopSimulatorStream();
+    }
+
     // Stop live polling
     if (state.liveWatch.pollingTimer) {
       clearInterval(state.liveWatch.pollingTimer);
@@ -286,21 +318,161 @@ function setOperatingMode(mode) {
     // Live Mode
     if (DOM.pillModeReplay) DOM.pillModeReplay.classList.remove('active');
     if (DOM.pillModeLive) DOM.pillModeLive.classList.add('active');
-    if (DOM.liveDeviceLabel) DOM.liveDeviceLabel.textContent = `Live Telemetry: ${state.liveWatch.deviceName}`;
-    if (DOM.liveDeviceBadge) {
-      DOM.liveDeviceBadge.textContent = '🔴 STREAMING';
-      DOM.liveDeviceBadge.style.color = '#f43f5e';
-      DOM.liveDeviceBadge.style.borderColor = 'rgba(244, 63, 94, 0.5)';
-    }
+
+    // Toggle decks: hide replay preset & scrubber decks, show liveControlDeck!
+    if (DOM.replayScenarioDeck) DOM.replayScenarioDeck.style.display = 'none';
+    if (DOM.replayControlDeck) DOM.replayControlDeck.style.display = 'none';
+    if (DOM.liveControlDeck) DOM.liveControlDeck.style.display = 'block';
 
     // Pause replay playback if active
     if (state.params.isPlaying) pauseStream();
+
+    // Hide ECG ground truth line because live smartwatch only has optical PPG & IMU
+    if (state.charts.forecast) {
+      state.charts.forecast.setDatasetVisibility(3, false);
+      state.charts.forecast.update('none');
+    }
+
+    // If no live data yet or buffer is empty, show clean empty state instead of stale replay data!
+    if (!state.data || !state.data.is_live || !state.data.timesteps || state.data.timesteps.length === 0) {
+      clearLiveTelemetryUI();
+    }
 
     // Start live polling every 800ms
     if (!state.liveWatch.pollingTimer) {
       fetchLiveTelemetry();
       state.liveWatch.pollingTimer = setInterval(fetchLiveTelemetry, 800);
     }
+  }
+}
+
+function clearLiveTelemetryUI() {
+  if (DOM.liveDeviceLabel) {
+    const devName = state.liveWatch.connectedDevice || state.liveWatch.deviceName || 'No Wearable Connected';
+    DOM.liveDeviceLabel.textContent = `Live Telemetry: ${devName}`;
+  }
+  if (DOM.liveDeviceBadge) {
+    DOM.liveDeviceBadge.textContent = '⚪ AWAITING STREAM (0 SAMPLES)';
+    DOM.liveDeviceBadge.style.color = '#94a3b8';
+    DOM.liveDeviceBadge.style.borderColor = 'rgba(148, 163, 184, 0.4)';
+  }
+
+  // Clear metric cards
+  if (DOM.valHeartRate) DOM.valHeartRate.textContent = '-- bpm';
+  if (DOM.deltaHeartRate) {
+    DOM.deltaHeartRate.textContent = 'Awaiting stream';
+    DOM.deltaHeartRate.className = 'metric-delta delta-neutral';
+  }
+  if (DOM.valWorkload) DOM.valWorkload.textContent = '--%';
+  if (DOM.deltaWorkload) {
+    DOM.deltaWorkload.textContent = 'Standby';
+    DOM.deltaWorkload.className = 'metric-delta delta-neutral';
+  }
+  if (DOM.valViolations) DOM.valViolations.textContent = '0';
+  if (DOM.deltaViolations) {
+    DOM.deltaViolations.textContent = '0 Live Samples';
+    DOM.deltaViolations.className = 'metric-delta delta-neutral';
+  }
+  if (DOM.valUncertainty) DOM.valUncertainty.textContent = '± -- bpm';
+  if (DOM.deltaUncertainty) {
+    DOM.deltaUncertainty.textContent = 'Awaiting stream';
+    DOM.deltaUncertainty.className = 'metric-delta delta-neutral';
+  }
+  if (DOM.valSQI) DOM.valSQI.textContent = '--%';
+  if (DOM.deltaSQI) {
+    DOM.deltaSQI.textContent = 'No signal';
+    DOM.deltaSQI.className = 'metric-delta delta-neutral';
+  }
+
+  // Live status cards
+  if (DOM.liveCardDevice) {
+    DOM.liveCardDevice.textContent = state.liveWatch.connectedDevice || 'Not Connected';
+  }
+  if (DOM.liveCardDeviceSub) {
+    DOM.liveCardDeviceSub.textContent = state.liveWatch.connectedDevice ? 'Paired Wearable Device' : "Click 'Pair Bluetooth Watch' or use REST API";
+  }
+  if (DOM.liveCardSamples) DOM.liveCardSamples.textContent = '0 packets';
+  if (DOM.liveCardDuration) DOM.liveCardDuration.textContent = '0.0s recorded (1.0 Hz)';
+  if (DOM.liveCardStatus) {
+    DOM.liveCardStatus.textContent = 'Standby / Awaiting';
+    DOM.liveCardStatus.className = 'live-card-value text-amber';
+  }
+  if (DOM.liveCardHeartbeat) DOM.liveCardHeartbeat.textContent = 'No recent packets';
+
+  // Data difference panel
+  if (DOM.valDeltaNoise) {
+    DOM.valDeltaNoise.textContent = '-- BPM';
+    DOM.valDeltaNoise.style.color = '#94a3b8';
+  }
+  if (DOM.subDeltaNoise) {
+    DOM.subDeltaNoise.textContent = 'Awaiting live optical PPG stream from smartwatch';
+  }
+  if (DOM.valDeltaBaseline) {
+    DOM.valDeltaBaseline.textContent = '-- BPM';
+    DOM.valDeltaBaseline.style.color = '#94a3b8';
+  }
+  if (DOM.subDeltaBaseline) {
+    DOM.subDeltaBaseline.textContent = 'Awaiting live stream comparison';
+  }
+  if (DOM.valRateGradient) {
+    DOM.valRateGradient.textContent = '--';
+    DOM.valRateGradient.style.color = '#94a3b8';
+  }
+  if (DOM.subRateGradient) {
+    DOM.subRateGradient.textContent = 'Awaiting rate telemetry';
+  }
+  if (DOM.valLiveSQI) DOM.valLiveSQI.textContent = '--%';
+  if (DOM.subLiveSQI) DOM.subLiveSQI.textContent = 'Awaiting signal';
+
+  // Clear charts
+  if (state.charts.forecast) {
+    state.charts.forecast.data.labels = [];
+    state.charts.forecast.data.datasets.forEach(ds => ds.data = []);
+    state.charts.forecast.update('none');
+  }
+  if (state.charts.workload) {
+    state.charts.workload.data.labels = [];
+    state.charts.workload.data.datasets.forEach(ds => ds.data = []);
+    state.charts.workload.update('none');
+  }
+}
+
+function setupLiveControlDeck() {
+  if (DOM.btnLiveConnectModal) {
+    DOM.btnLiveConnectModal.addEventListener('click', () => {
+      const modal = document.getElementById('watchModal');
+      if (modal) modal.classList.add('active');
+    });
+  }
+
+  if (DOM.btnLiveResetBuffer) {
+    DOM.btnLiveResetBuffer.addEventListener('click', async () => {
+      await resetLiveBuffer();
+      clearLiveTelemetryUI();
+    });
+  }
+
+  if (DOM.btnLiveTestStream) {
+    DOM.btnLiveTestStream.addEventListener('click', () => {
+      if (state.liveWatch.isSimulating) {
+        stopSimulatorStream();
+      } else {
+        startSimulatorStream();
+      }
+    });
+  }
+
+  if (DOM.btnCopyLiveUrl) {
+    DOM.btnCopyLiveUrl.addEventListener('click', () => {
+      const host = window.location.host;
+      const fullUrl = `${window.location.protocol}//${host}/api/live/ingest`;
+      navigator.clipboard.writeText(fullUrl).then(() => {
+        DOM.btnCopyLiveUrl.textContent = '✅';
+        setTimeout(() => { DOM.btnCopyLiveUrl.textContent = '📋'; }, 2000);
+      }).catch(() => {
+        prompt('Copy Live Telemetry Ingest URL:', fullUrl);
+      });
+    });
   }
 }
 
@@ -555,11 +727,18 @@ function startSimulatorStream() {
   state.liveWatch.isSimulating = true;
   state.liveWatch.simStep = 0;
   state.liveWatch.simHrClean = 72.0;
+  state.liveWatch.connectedDevice = "Galaxy Watch6 Simulator";
 
   if (DOM.btnTriggerSimText) DOM.btnTriggerSimText.textContent = '⏸ Stop Live Simulator';
   if (DOM.btnTriggerSimStream) {
     DOM.btnTriggerSimStream.classList.remove('btn-primary');
     DOM.btnTriggerSimStream.classList.add('btn-secondary');
+  }
+  if (DOM.btnLiveTestText) DOM.btnLiveTestText.textContent = 'Stop Test Stream';
+  if (DOM.btnLiveTestIcon) DOM.btnLiveTestIcon.textContent = '⏸';
+  if (DOM.btnLiveTestStream) {
+    DOM.btnLiveTestStream.classList.remove('btn-secondary');
+    DOM.btnLiveTestStream.classList.add('btn-danger');
   }
 
   setOperatingMode('live');
@@ -640,6 +819,12 @@ function stopSimulatorStream() {
     DOM.btnTriggerSimStream.classList.add('btn-primary');
     DOM.btnTriggerSimStream.classList.remove('btn-secondary');
   }
+  if (DOM.btnLiveTestText) DOM.btnLiveTestText.textContent = 'Stream Test Telemetry (1 Hz)';
+  if (DOM.btnLiveTestIcon) DOM.btnLiveTestIcon.textContent = '🧪';
+  if (DOM.btnLiveTestStream) {
+    DOM.btnLiveTestStream.classList.add('btn-secondary');
+    DOM.btnLiveTestStream.classList.remove('btn-danger');
+  }
 }
 
 async function postLiveTelemetrySample(payload) {
@@ -682,9 +867,29 @@ async function fetchLiveTelemetry() {
     state.data = data;
 
     if (data.timesteps && data.timesteps.length > 0) {
+      const devName = data.device_name || state.liveWatch.connectedDevice || 'Wearable Device';
+      if (DOM.liveDeviceLabel) DOM.liveDeviceLabel.textContent = `Live Telemetry: ${devName}`;
+      if (DOM.liveDeviceBadge) {
+        DOM.liveDeviceBadge.textContent = `🟢 STREAMING (${data.timesteps.length} SAMPLES)`;
+        DOM.liveDeviceBadge.style.color = '#10b981';
+        DOM.liveDeviceBadge.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+      }
+
+      if (DOM.liveCardDevice) DOM.liveCardDevice.textContent = devName;
+      if (DOM.liveCardDeviceSub) DOM.liveCardDeviceSub.textContent = 'Active Optical PPG + IMU Stream';
+      if (DOM.liveCardSamples) DOM.liveCardSamples.textContent = `${data.timesteps.length} packets`;
+      if (DOM.liveCardDuration) DOM.liveCardDuration.textContent = `${(data.timesteps.length * 1.0).toFixed(1)}s recorded (1.0 Hz)`;
+      if (DOM.liveCardStatus) {
+        DOM.liveCardStatus.textContent = '🟢 Active Ingestion';
+        DOM.liveCardStatus.className = 'live-card-value text-emerald';
+      }
+      if (DOM.liveCardHeartbeat) DOM.liveCardHeartbeat.textContent = 'Heartbeat active (< 1s ago)';
+
       updateMetricCards(data.metrics);
       updateTelemetryCharts(data);
       updateDataDifferenceSection(data);
+    } else {
+      clearLiveTelemetryUI();
     }
   } catch (err) {
     console.warn('Live telemetry poll error:', err);

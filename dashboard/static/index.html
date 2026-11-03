@@ -97,8 +97,62 @@
         </div>
       </section>
 
-      <!-- Scenario Quick Pick Bar -->
-      <section class="scenario-deck" aria-label="Quick Scenario Presets">
+      <!-- Dedicated Live Smartwatch Ingestion Deck (Active only in Live Mode) -->
+      <section id="liveControlDeck" class="live-control-deck" style="display: none;" aria-label="Live Smartwatch Controls">
+        <div class="live-deck-header">
+          <div class="live-deck-title">
+            <span class="live-pulse-radar"></span>
+            <div>
+              <h3>🔴 Live Smartwatch Telemetry Stream</h3>
+              <p id="liveDeckSubtext">Awaiting real-time optical PPG and IMU acceleration stream from connected wearable device.</p>
+            </div>
+          </div>
+          <div class="live-deck-actions">
+            <button id="btnLiveConnectModal" class="btn btn-primary">
+              <span>⌚ Pair Bluetooth Watch</span>
+            </button>
+            <button id="btnLiveTestStream" class="btn btn-secondary">
+              <span id="btnLiveTestIcon">🧪</span>
+              <span id="btnLiveTestText">Stream Test Telemetry (1 Hz)</span>
+            </button>
+            <button id="btnLiveResetBuffer" class="btn btn-secondary" title="Flush live buffer to 0 samples">
+              <span>🔄 Reset Live Buffer</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="live-status-cards">
+          <div class="live-status-card">
+            <span class="live-card-label">Hardware Device</span>
+            <span class="live-card-value" id="liveCardDevice">Not Connected</span>
+            <span class="live-card-sub" id="liveCardDeviceSub">Click 'Pair Bluetooth Watch' or use REST API</span>
+          </div>
+
+          <div class="live-status-card">
+            <span class="live-card-label">Ingested Samples</span>
+            <span class="live-card-value" id="liveCardSamples">0 packets</span>
+            <span class="live-card-sub" id="liveCardDuration">0.0s recorded (1.0 Hz)</span>
+          </div>
+
+          <div class="live-status-card">
+            <span class="live-card-label">Buffer Stream Status</span>
+            <span class="live-card-value text-amber" id="liveCardStatus">Standby / Awaiting</span>
+            <span class="live-card-sub" id="liveCardHeartbeat">No recent packets</span>
+          </div>
+
+          <div class="live-status-card endpoint-card">
+            <span class="live-card-label">Wi-Fi Ingestion REST API</span>
+            <div class="endpoint-code-box">
+              <code id="liveIngestCode">POST /api/live/ingest</code>
+              <button id="btnCopyLiveUrl" class="btn-copy-code" title="Copy full endpoint URL">📋</button>
+            </div>
+            <span class="live-card-sub">Samsung Galaxy Watch / Wear OS / Garmin HTTP push</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Scenario Quick Pick Bar (Active only in Benchmark Replay Mode) -->
+      <section id="replayScenarioDeck" class="scenario-deck" aria-label="Quick Scenario Presets">
         <div class="scenario-label">
           <span>⚡ Preset Scenarios:</span>
         </div>
@@ -197,8 +251,8 @@
         </div>
       </section>
 
-      <!-- Simulation Control Deck -->
-      <section class="control-deck" aria-label="Playback and Stress Testing Controls">
+      <!-- Simulation Control Deck (Active only in Benchmark Replay Mode) -->
+      <section id="replayControlDeck" class="control-deck" aria-label="Playback and Stress Testing Controls">
         <div class="control-row">
           <div class="playback-controls">
             <button id="btnPlay" class="btn btn-primary">
