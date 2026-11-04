@@ -83,22 +83,22 @@
       <!-- Stream Mode Deck: Switch between Pre-recorded Demo and Live Smartwatch Ingest -->
       <section class="stream-mode-deck" aria-label="Operating Mode Selector">
         <div class="mode-selector-group">
-          <button class="mode-pill active" id="pillModeReplay" data-mode="replay">
+          <button class="mode-pill" id="pillModeReplay" data-mode="replay">
             <span>📼 Benchmark Replay (350s)</span>
           </button>
-          <button class="mode-pill" id="pillModeLive" data-mode="live">
+          <button class="mode-pill active" id="pillModeLive" data-mode="live">
             <span>🔴 Live Smartwatch Telemetry</span>
           </button>
         </div>
         <div class="mode-status-info">
-          <span id="liveDeviceLabel" class="text-secondary">Source: Pre-recorded Exercise Run (PPG-DaLiA)</span>
-          <span id="liveDeviceBadge" class="device-active-chip">DEMO SESSION</span>
+          <span id="liveDeviceLabel" class="text-secondary">Live Telemetry: Samsung Galaxy Watch</span>
+          <span id="liveDeviceBadge" class="device-active-chip" style="color: #94a3b8; border-color: rgba(148, 163, 184, 0.4);">⚪ AWAITING STREAM (0 SAMPLES)</span>
           <button id="btnQuickWatchModal" class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.76rem;">⌚ Watch Setup</button>
         </div>
       </section>
 
       <!-- Dedicated Live Smartwatch Ingestion Deck (Active only in Live Mode) -->
-      <section id="liveControlDeck" class="live-control-deck" style="display: none;" aria-label="Live Smartwatch Controls">
+      <section id="liveControlDeck" class="live-control-deck" style="display: block;" aria-label="Live Smartwatch Controls">
         <div class="live-deck-header">
           <div class="live-deck-title">
             <span class="live-pulse-radar"></span>
@@ -149,10 +149,24 @@
             <span class="live-card-sub">Samsung Galaxy Watch / Wear OS / Garmin HTTP push</span>
           </div>
         </div>
+
+        <!-- Personalized Auto-ODE Status Bar in Live Deck -->
+        <div class="live-ode-calibration-bar">
+          <div class="live-ode-info">
+            <span class="live-ode-icon">⚡</span>
+            <span class="live-ode-title">Personalized Biophysics (Auto-ODE):</span>
+            <span id="liveOdeBadge" class="live-ode-badge">Basal HR 64 bpm • &tau; 18.3s • &beta; 3.3 (Personalized)</span>
+          </div>
+          <div class="live-ode-actions">
+            <button id="btnLiveCalibrateODE" class="btn btn-secondary btn-sm" title="Automatically calibrate personalized ODE parameters from current wearable stream and usage history">
+              <span>⚡ Auto-Calibrate ODE</span>
+            </button>
+          </div>
+        </div>
       </section>
 
       <!-- Scenario Quick Pick Bar (Active only in Benchmark Replay Mode) -->
-      <section id="replayScenarioDeck" class="scenario-deck" aria-label="Quick Scenario Presets">
+      <section id="replayScenarioDeck" class="scenario-deck" style="display: none;" aria-label="Quick Scenario Presets">
         <div class="scenario-label">
           <span>⚡ Preset Scenarios:</span>
         </div>
@@ -185,7 +199,7 @@
           </div>
           <div class="metric-value-row">
             <div class="metric-value" id="valHeartRate">-- bpm</div>
-            <div class="metric-delta delta-good" id="deltaHeartRate">-- bpm/s</div>
+            <div class="metric-delta delta-neutral" id="deltaHeartRate">Awaiting stream</div>
           </div>
           <div class="metric-footer-note">Cardiovascular ODE Compliant</div>
         </div>
@@ -197,7 +211,7 @@
           </div>
           <div class="metric-value-row">
             <div class="metric-value" id="valWorkload">--%</div>
-            <div class="metric-delta delta-good" id="deltaWorkload">Aerobic Zone</div>
+            <div class="metric-delta delta-neutral" id="deltaWorkload">Standby</div>
           </div>
           <div class="metric-footer-note">IMU Acceleration Magnitude</div>
         </div>
@@ -209,7 +223,7 @@
           </div>
           <div class="metric-value-row">
             <div class="metric-value" id="valViolations">0</div>
-            <div class="metric-delta delta-good" id="deltaViolations">-18 vs Baseline</div>
+            <div class="metric-delta delta-neutral" id="deltaViolations">0 Live Samples</div>
           </div>
           <div class="metric-footer-note">Rate jumps > 6 bpm/s bounded</div>
         </div>
@@ -220,8 +234,8 @@
             <span class="metric-icon">🎯</span>
           </div>
           <div class="metric-value-row">
-            <div class="metric-value" id="valUncertainty">± 2.1 bpm</div>
-            <div class="metric-delta delta-good" id="deltaUncertainty">High Confidence</div>
+            <div class="metric-value" id="valUncertainty">± -- bpm</div>
+            <div class="metric-delta delta-neutral" id="deltaUncertainty">Awaiting stream</div>
           </div>
           <div class="metric-footer-note">Heteroscedastic Aleatoric Head</div>
         </div>
@@ -232,8 +246,8 @@
             <span class="metric-icon">📶</span>
           </div>
           <div class="metric-value-row">
-            <div class="metric-value" id="valSQI">92%</div>
-            <div class="metric-delta delta-good" id="deltaSQI">Clean Signal</div>
+            <div class="metric-value" id="valSQI">--%</div>
+            <div class="metric-delta delta-neutral" id="deltaSQI">No signal</div>
           </div>
           <div class="metric-footer-note">Morphology & Skewness Check</div>
         </div>
@@ -252,7 +266,7 @@
       </section>
 
       <!-- Simulation Control Deck (Active only in Benchmark Replay Mode) -->
-      <section id="replayControlDeck" class="control-deck" aria-label="Playback and Stress Testing Controls">
+      <section id="replayControlDeck" class="control-deck" style="display: none;" aria-label="Playback and Stress Testing Controls">
         <div class="control-row">
           <div class="playback-controls">
             <button id="btnPlay" class="btn btn-primary">
@@ -378,8 +392,8 @@
               <span>Optical Motion Noise Filtered</span>
               <span class="diff-tag-pill diff-tag-filtered">&Delta; |Raw - PINN|</span>
             </div>
-            <div class="diff-card-value" id="valDeltaNoise">0.0 BPM</div>
-            <div class="diff-card-sub" id="subDeltaNoise">Artifact suppressed by cardiovascular ODE</div>
+            <div class="diff-card-value" id="valDeltaNoise">-- BPM</div>
+            <div class="diff-card-sub" id="subDeltaNoise">Awaiting live optical PPG stream from smartwatch</div>
           </div>
 
           <div class="diff-card accent-blue">
@@ -387,8 +401,8 @@
               <span>AI Hallucination Prevented</span>
               <span class="diff-tag-pill diff-tag-filtered">&Delta; |Base - PINN|</span>
             </div>
-            <div class="diff-card-value" id="valDeltaBaseline">0.0 BPM</div>
-            <div class="diff-card-sub" id="subDeltaBaseline">Unbounded deep learning drift prevented</div>
+            <div class="diff-card-value" id="valDeltaBaseline">-- BPM</div>
+            <div class="diff-card-sub" id="subDeltaBaseline">Awaiting live stream comparison</div>
           </div>
 
           <div class="diff-card accent-emerald">
@@ -396,8 +410,8 @@
               <span>Physiological Continuity</span>
               <span class="diff-tag-pill diff-tag-safe">dHR/dt Limit</span>
             </div>
-            <div class="diff-card-value" id="valRateGradient">&le; 5.0 bpm/s</div>
-            <div class="diff-card-sub" id="subRateGradient">&check; Hemodynamically bounded</div>
+            <div class="diff-card-value" id="valRateGradient">--</div>
+            <div class="diff-card-sub" id="subRateGradient">Awaiting rate telemetry</div>
           </div>
 
           <div class="diff-card accent-purple">
@@ -405,8 +419,8 @@
               <span>Sensor Quality &amp; Confidence</span>
               <span class="diff-tag-pill diff-tag-safe">PPG SQI</span>
             </div>
-            <div class="diff-card-value" id="valLiveSQI">92%</div>
-            <div class="diff-card-sub" id="subLiveSQI">Dynamic Bayesian CI: &plusmn; 2.1 bpm</div>
+            <div class="diff-card-value" id="valLiveSQI">--%</div>
+            <div class="diff-card-sub" id="subLiveSQI">Awaiting signal</div>
           </div>
         </div>
 
@@ -829,37 +843,80 @@
           </p>
         </div>
 
+        <!-- Personalized Cardiovascular Profile Card (Auto-Calibrated from Wearable) -->
+        <div class="ode-auto-profile-card">
+          <div class="auto-profile-header">
+            <div class="auto-profile-title">
+              <span class="auto-profile-icon">🧬</span>
+              <div>
+                <h3>Personalized Cardiovascular Profile (Auto-Calibrated)</h3>
+                <p>Dynamic ODE parameters auto-calibrated from your smartwatch optical PPG &amp; IMU exercise history.</p>
+              </div>
+            </div>
+            <div class="auto-profile-actions">
+              <button id="btnAutoCalibrateODE" class="btn btn-primary btn-sm">
+                <span>⚡ Calibrate from Watch History</span>
+              </button>
+              <button id="btnSaveODEProfile" class="btn btn-secondary btn-sm">
+                <span>💾 Save Profile</span>
+              </button>
+            </div>
+          </div>
+          <div class="auto-profile-grid">
+            <div class="profile-stat-box">
+              <span class="stat-box-label">Basal Resting Heart Rate (HR<sub>rest</sub>)</span>
+              <span class="stat-box-val text-cyan" id="profileHRRest">64 bpm</span>
+              <span class="stat-box-desc">15th-percentile quiescent baseline</span>
+            </div>
+            <div class="profile-stat-box">
+              <span class="stat-box-label">Recovery Time Constant (&tau;)</span>
+              <span class="stat-box-val text-emerald" id="profileTau">18.3 s</span>
+              <span class="stat-box-desc">Parasympathetic vagal reactivation speed</span>
+            </div>
+            <div class="profile-stat-box">
+              <span class="stat-box-label">Workload Sensitivity Gain (&beta;)</span>
+              <span class="stat-box-val text-amber" id="profileBeta">3.3</span>
+              <span class="stat-box-desc">Sympathetic autonomic exertion gain</span>
+            </div>
+            <div class="profile-stat-box">
+              <span class="stat-box-label">Autonomic Fitness Classification</span>
+              <span class="stat-box-val text-purple" id="profileFitnessTier">Athletic / Fast Recovery</span>
+              <span class="stat-box-desc" id="profileConfidence">Auto-Calibrated from Telemetry</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Interactive ODE Playground -->
         <div class="ode-playground-grid">
           <!-- Controls Column -->
           <div class="ode-controls-card">
             <h3>🎛️ Dynamic Parameter Playground</h3>
-            <p class="control-note">Drag sliders to simulate the cardiovascular system's real-time trajectory response to a 60-second exercise bout:</p>
+            <p class="control-note">Adjust sliders to simulate your cardiovascular system's real-time trajectory response to a 60-second exercise bout:</p>
 
             <div class="ode-slider-item">
               <div class="ode-slider-labels">
                 <span>Recovery Time Constant (&tau;)</span>
-                <span class="slider-badge" id="odeTauVal">45.0 s</span>
+                <span class="slider-badge" id="odeTauVal">18.3 s</span>
               </div>
-              <input type="range" id="odeTauSlider" min="15" max="120" value="45" step="1" class="custom-slider">
-              <span class="param-hint">Vagal tone speed (Athletic: 20-35s | Sedentary: 50-90s)</span>
+              <input type="range" id="odeTauSlider" min="10" max="75" value="18.3" step="0.5" class="custom-slider">
+              <span class="param-hint">Vagal tone speed (Athletic: 15-25s | Active: 25-40s | Sedentary: 45-75s)</span>
             </div>
 
             <div class="ode-slider-item">
               <div class="ode-slider-labels">
                 <span>Workload Gain Coefficient (&beta;)</span>
-                <span class="slider-badge badge-warning" id="odeBetaVal">18.0</span>
+                <span class="slider-badge badge-warning" id="odeBetaVal">3.3</span>
               </div>
-              <input type="range" id="odeBetaSlider" min="5" max="40" value="18" step="0.5" class="custom-slider slider-amber">
+              <input type="range" id="odeBetaSlider" min="1.0" max="12.0" value="3.3" step="0.1" class="custom-slider slider-amber">
               <span class="param-hint">Sympathetic sensitivity to accelerometer load</span>
             </div>
 
             <div class="ode-slider-item">
               <div class="ode-slider-labels">
                 <span>Resting Heart Rate (HR<sub>rest</sub>)</span>
-                <span class="slider-badge" id="odeRestVal">68 bpm</span>
+                <span class="slider-badge" id="odeRestVal">64 bpm</span>
               </div>
-              <input type="range" id="odeRestSlider" min="45" max="95" value="68" step="1" class="custom-slider">
+              <input type="range" id="odeRestSlider" min="45" max="95" value="64" step="1" class="custom-slider">
               <span class="param-hint">Individual basal baseline heart rate</span>
             </div>
 

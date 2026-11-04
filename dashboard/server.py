@@ -281,10 +281,19 @@ class LiveSampleInput(BaseModel):
     device_name: Optional[str] = Field("Samsung Galaxy Watch", description="Wearable device identifier")
     timestamp: Optional[float] = Field(None, description="Timestamp in seconds")
 
+class ODECalibrateInput(BaseModel):
+    tau: Optional[float] = Field(None, description="Parasympathetic vagal recovery time constant in seconds")
+    beta: Optional[float] = Field(None, description="Sympathetic workload sensitivity gain")
+    hr_rest: Optional[float] = Field(None, description="Basal resting heart rate in BPM")
+
 class LiveBiometricManager:
     def __init__(self, engine_instance: TelemetryEngine, maxlen: int = 300):
         self.engine = engine_instance
         self.maxlen = maxlen
+        self.tau_val = float(self.engine.tau_val)
+        self.beta_val = float(self.engine.beta_val)
+        self.hr_rest_val = 64.0
+        self.fitness_tier = "Athletic / Fast Recovery"
         self.reset()
 
     def reset(self):
@@ -380,9 +389,9 @@ class LiveBiometricManager:
             window_data = window_data[:, [0, 1, 3]]
 
         prev_pinn = self.pinn_preds[-1] if self.pinn_preds else hr_val
-        hr_rest = 68.0
-        tau = max(15.0, float(self.engine.pinn_model.tau.item())) if (TORCH_AVAILABLE and self.engine.pinn_model is not None and hasattr(self.engine.pinn_model, 'tau')) else self.engine.tau_val
-        beta = max(1.0, float(self.engine.pinn_model.beta.item())) if (TORCH_AVAILABLE and self.engine.pinn_model is not None and hasattr(self.engine.pinn_model, 'beta')) else self.engine.beta_val
+        hr_rest = getattr(self, "hr_rest_val", 64.0)
+        tau = getattr(self, "tau_val", 18.3)
+        beta = getattr(self, "beta_val", 3.3)
 
         # Biological ODE Trajectory: dHR/dt = -(1/tau)*(HR - HR_rest) + beta*Workload
         dhr_ode = (-(prev_pinn - hr_rest) / tau + beta * workload) * 1.0
@@ -488,8 +497,9 @@ class LiveBiometricManager:
                     "raw_violations": 0,
                     "pinn_violations": 0,
                     "base_violations": 0,
-                    "tau": round(float(self.engine.pinn_model.tau.item()), 1) if (TORCH_AVAILABLE and self.engine.pinn_model is not None and hasattr(self.engine.pinn_model, 'tau')) else self.engine.tau_val,
-                    "beta": round(float(self.engine.pinn_model.beta.item()), 2) if (TORCH_AVAILABLE and self.engine.pinn_model is not None and hasattr(self.engine.pinn_model, 'beta')) else self.engine.beta_val,
+                    "tau": round(getattr(self, "tau_val", 18.3), 1),
+                    "beta": round(getattr(self, "beta_val", 3.3), 2),
+                    "hr_rest": round(getattr(self, "hr_rest_val", 64.0), 1),
                     "edge_footprint": "55.3 KB",
                     "latency_ms": "< 10 ms"
                 }
@@ -543,11 +553,61 @@ class LiveBiometricManager:
                 "raw_violations": self.raw_violations,
                 "pinn_violations": self.pinn_violations,
                 "base_violations": self.base_violations,
-                "tau": round(float(self.engine.pinn_model.tau.item()), 1) if (TORCH_AVAILABLE and self.engine.pinn_model is not None and hasattr(self.engine.pinn_model, 'tau')) else self.engine.tau_val,
-                "beta": round(float(self.engine.pinn_model.beta.item()), 2) if (TORCH_AVAILABLE and self.engine.pinn_model is not None and hasattr(self.engine.pinn_model, 'beta')) else self.engine.beta_val,
+                "tau": round(getattr(self, "tau_val", 18.3), 1),
+                "beta": round(getattr(self, "beta_val", 3.3), 2),
+                "hr_rest": round(getattr(self, "hr_rest_val", 64.0), 1),
                 "edge_footprint": "55.3 KB",
                 "latency_ms": "< 10 ms"
             }
+        }
+
+    def calibrate_ode_parameters(self) -> dict:
+        """Personalized ODE parameter estimation from ingested history."""
+        if len(self.timesteps) < 10 or not self.hr_raw:
+            return {
+                "tau": self.tau_val,
+                "beta": self.beta_val,
+                "hr_rest": self.hr_rest_val,
+                "fitness_tier": self.fitness_tier
+            }
+        quiescent_hrs = [h for h, w, s in zip(self.hr_raw, self.workloads, self.sqis) if w <= 0.22 and s >= 0.50]
+        if len(quiescent_hrs) >= 5:
+            self.hr_rest_val = float(np.percentile(quiescent_hrs, 15))
+        else:
+            self.hr_rest_val = float(np.percentile(self.hr_raw, 10))
+        self.hr_rest_val = max(48.0, min(88.0, self.hr_rest_val))
+
+        decays = []
+        for i in range(1, len(self.hr_raw)):
+            if self.workloads[i] <= 0.25 and self.hr_raw[i] < self.hr_raw[i-1] and self.hr_raw[i] > self.hr_rest_val + 3.0:
+                dhr = self.hr_raw[i] - self.hr_raw[i-1]
+                excess = ((self.hr_raw[i] + self.hr_raw[i-1]) / 2.0) - self.hr_rest_val
+                if excess > 2.0:
+                    k = -dhr / excess
+                    if 0.015 < k < 0.12:
+                        decays.append(1.0 / k)
+        if len(decays) >= 3:
+            self.tau_val = float(np.median(decays))
+        else:
+            self.tau_val = 18.3
+        self.tau_val = max(12.0, min(65.0, self.tau_val))
+
+        self.beta_val = max(1.2, min(7.5, (max(self.hr_raw) - self.hr_rest_val) / (self.tau_val * max(0.3, max(self.workloads)))))
+
+        if self.tau_val <= 20.0 and self.hr_rest_val <= 62.0:
+            self.fitness_tier = "Elite / Rapid Vagal Reactivity"
+        elif self.tau_val <= 28.0:
+            self.fitness_tier = "Athletic / Fast Recovery"
+        elif self.tau_val <= 42.0:
+            self.fitness_tier = "Active Baseline"
+        else:
+            self.fitness_tier = "Moderate Aerobic"
+
+        return {
+            "tau": round(self.tau_val, 1),
+            "beta": round(self.beta_val, 2),
+            "hr_rest": round(self.hr_rest_val, 1),
+            "fitness_tier": self.fitness_tier
         }
 
 live_manager = LiveBiometricManager(engine)
@@ -594,6 +654,28 @@ def reset_live_buffer():
     """Reset the live ingestion buffer and counters."""
     live_manager.reset()
     return JSONResponse(content={"status": "cleared", "total_samples": 0})
+
+@app.post("/api/live/calibrate_ode")
+def calibrate_live_ode(params: Optional[ODECalibrateInput] = None):
+    """
+    Calibrate personalized biophysical ODE parameters from wearable history or explicit values.
+    """
+    if params and params.tau is not None and params.beta is not None:
+        live_manager.tau_val = float(params.tau)
+        live_manager.beta_val = float(params.beta)
+        if params.hr_rest is not None:
+            live_manager.hr_rest_val = float(params.hr_rest)
+        tier = "Personalized"
+    else:
+        calib = live_manager.calibrate_ode_parameters()
+        tier = calib["fitness_tier"]
+    return JSONResponse(content={
+        "status": "calibrated",
+        "tau": round(live_manager.tau_val, 1),
+        "beta": round(live_manager.beta_val, 2),
+        "hr_rest": round(getattr(live_manager, "hr_rest_val", 64.0), 1),
+        "fitness_tier": tier
+    })
 
 @app.get("/api/live/status")
 def get_live_status():

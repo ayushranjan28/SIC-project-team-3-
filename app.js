@@ -24,7 +24,7 @@ const state = {
     speed: 1.0,
     isPlaying: false
   },
-  mode: 'replay', // 'replay' or 'live'
+  mode: 'live', // 'replay' or 'live' (Default to live on refresh)
   liveWatch: {
     connected: false,
     device: null,
@@ -48,7 +48,7 @@ const state = {
   odeState: {
     tau: 18.3,
     beta: 3.3,
-    hrRest: 68.0,
+    hrRest: 64.0,
     workload: 0.80
   },
   animationTimer: null,
@@ -199,6 +199,17 @@ function cacheDOMElements() {
   DOM.insightSteadyState = document.getElementById('insightSteadyState');
   DOM.insightHalfRecovery = document.getElementById('insightHalfRecovery');
   DOM.insightMaxRise = document.getElementById('insightMaxRise');
+
+  // Auto-ODE Calibration Elements
+  DOM.liveOdeBadge = document.getElementById('liveOdeBadge');
+  DOM.btnLiveCalibrateODE = document.getElementById('btnLiveCalibrateODE');
+  DOM.btnAutoCalibrateODE = document.getElementById('btnAutoCalibrateODE');
+  DOM.btnSaveODEProfile = document.getElementById('btnSaveODEProfile');
+  DOM.profileHRRest = document.getElementById('profileHRRest');
+  DOM.profileTau = document.getElementById('profileTau');
+  DOM.profileBeta = document.getElementById('profileBeta');
+  DOM.profileFitnessTier = document.getElementById('profileFitnessTier');
+  DOM.profileConfidence = document.getElementById('profileConfidence');
 }
 
 /**
@@ -231,13 +242,28 @@ async function initTelemetryWorkstation() {
   initWorkloadChart();
   initODESimChart();
 
-  await Promise.all([
-    fetchTelemetry(),
+  // Initialize in Live Mode with completely clean empty state (NO pre-recorded data on refresh!)
+  state.mode = 'live';
+  clearLiveTelemetryUI();
+  if (state.charts.forecast) {
+    state.charts.forecast.setDatasetVisibility(3, false); // Hide ground truth in live mode
+    state.charts.forecast.update('none');
+  }
+
+  // Load and apply personalized ODE biophysical profile
+  loadSavedODEProfile();
+  runODESimulation();
+
+  // Background fetch benchmark comparisons and plots for Tabs 2 & 3
+  Promise.all([
     fetchBenchmarks(),
     fetchPlots()
-  ]);
+  ]).catch(err => console.warn('Background benchmark load deferred:', err));
 
-  runODESimulation();
+  // Start polling live telemetry endpoint (800ms)
+  if (!state.liveWatch.pollingTimer) {
+    state.liveWatch.pollingTimer = setInterval(fetchLiveTelemetry, 800);
+  }
 }
 
 /**
@@ -472,6 +498,12 @@ function setupLiveControlDeck() {
       }).catch(() => {
         prompt('Copy Live Telemetry Ingest URL:', fullUrl);
       });
+    });
+  }
+
+  if (DOM.btnLiveCalibrateODE) {
+    DOM.btnLiveCalibrateODE.addEventListener('click', () => {
+      triggerODEAutoCalibration(true);
     });
   }
 }
@@ -816,6 +848,9 @@ function onBluetoothDisconnected() {
   state.liveWatch.connected = false;
   state.liveWatch.device = null;
   state.liveWatch.characteristic = null;
+  state.liveWatch.connectedDevice = null;
+  state.clientBuffer = null;
+  state.data = null;
 
   const btnPair = document.getElementById('btnPairBluetoothWatch');
   const btnDisc = document.getElementById('btnDisconnectWatch');
@@ -828,11 +863,18 @@ function onBluetoothDisconnected() {
   if (statusBox) {
     statusBox.innerHTML = '<span style="color: var(--accent-amber);">Watch disconnected. Ready to re-pair.</span>';
   }
+
+  // Immediately wipe telemetry workstation back to clean empty state
+  clearLiveTelemetryUI();
 }
 
 function disconnectWebBluetooth() {
   if (state.liveWatch.device && state.liveWatch.device.gatt.connected) {
-    state.liveWatch.device.gatt.disconnect();
+    try {
+      state.liveWatch.device.gatt.disconnect();
+    } catch (e) {
+      console.warn('Error during BLE disconnect:', e);
+    }
   }
   onBluetoothDisconnected();
 }
@@ -950,6 +992,13 @@ function stopSimulatorStream() {
     DOM.btnLiveTestStream.classList.add('btn-secondary');
     DOM.btnLiveTestStream.classList.remove('btn-danger');
   }
+
+  // If physical BLE watch is not streaming, reset client buffer and wipe UI to clean empty state
+  if (!state.liveWatch.connected) {
+    state.clientBuffer = null;
+    state.data = null;
+    clearLiveTelemetryUI();
+  }
 }
 
 async function postLiveTelemetrySample(payload) {
@@ -1029,13 +1078,18 @@ function appendClientLiveSample(step, rawPayload) {
     current_sqi: step.ppg_sqi || 94.0,
     pinn_violations: 0,
     base_violations: 0,
-    tau: 18.3,
-    beta: 3.3,
+    tau: state.odeState.tau || 18.3,
+    beta: state.odeState.beta || 3.3,
     edge_footprint: "55.3 KB",
     latency_ms: "8.7 ms"
   };
 
   state.data = buf;
+
+  // Adaptively auto-calibrate personalized ODE details from live watch history
+  if (buf.timesteps.length >= 20 && buf.timesteps.length % 25 === 0) {
+    triggerODEAutoCalibration(false);
+  }
 
   const devName = step.device_name || rawPayload.device_name || 'Samsung Galaxy Watch';
   if (DOM.liveDeviceLabel) DOM.liveDeviceLabel.textContent = `Live Telemetry: ${devName}`;
@@ -2021,11 +2075,35 @@ function setupODESimControls() {
 
   if (DOM.btnResetODE) {
     DOM.btnResetODE.addEventListener('click', () => {
-      DOM.odeTauSlider.value = 45.0;
-      DOM.odeBetaSlider.value = 18.0;
-      DOM.odeRestSlider.value = 68.0;
+      DOM.odeTauSlider.value = 18.3;
+      DOM.odeBetaSlider.value = 3.3;
+      DOM.odeRestSlider.value = 64.0;
       DOM.odeWorkloadSlider.value = 0.80;
       updateSim();
+    });
+  }
+
+  if (DOM.btnAutoCalibrateODE) {
+    DOM.btnAutoCalibrateODE.addEventListener('click', () => {
+      triggerODEAutoCalibration(true);
+    });
+  }
+
+  if (DOM.btnSaveODEProfile) {
+    DOM.btnSaveODEProfile.addEventListener('click', () => {
+      const currentProfile = {
+        hrRest: state.odeState.hrRest,
+        tau: state.odeState.tau,
+        beta: state.odeState.beta,
+        fitnessTier: DOM.profileFitnessTier ? DOM.profileFitnessTier.textContent : 'Personalized Profile',
+        confidence: 'Manually Confirmed & Saved',
+        source: 'User Customized'
+      };
+      AutoODECalibrator.saveProfile(currentProfile);
+      if (DOM.btnSaveODEProfile) {
+        DOM.btnSaveODEProfile.textContent = '✅ Profile Saved!';
+        setTimeout(() => { DOM.btnSaveODEProfile.textContent = '💾 Save Profile'; }, 2000);
+      }
     });
   }
 }
@@ -2129,4 +2207,239 @@ function runODESimulation() {
   if (DOM.insightHalfRecovery) DOM.insightHalfRecovery.textContent = `${tau.toFixed(1)} s`;
   const maxRise = beta * workload;
   if (DOM.insightMaxRise) DOM.insightMaxRise.textContent = `${maxRise.toFixed(2)} bpm/s`;
+}
+
+/**
+ * ============================================================================
+ * Personalized Cardiovascular Auto-ODE Calibrator
+ * Derives personalized biophysical parameters:
+ *   - HR_rest (Basal Resting Rate in BPM)
+ *   - tau (Parasympathetic Vagal Recovery Constant in seconds)
+ *   - beta (Sympathetic Workload Sensitivity Gain)
+ *   - Autonomic Fitness Classification
+ * Mathematically fitted from live wearable PPG & IMU exercise history.
+ * ============================================================================
+ */
+const AutoODECalibrator = {
+  STORAGE_KEY: 'galaxy_health_ode_profile_v1',
+
+  getDefaults() {
+    return {
+      hrRest: 64.0,
+      tau: 18.3,
+      beta: 3.3,
+      fitnessTier: 'Athletic / Fast Recovery',
+      confidence: 'Physiological Prior (PINN Learned)',
+      source: 'PINN Model Benchmark Prior',
+      calibratedAt: new Date().toLocaleTimeString()
+    };
+  },
+
+  loadProfile() {
+    try {
+      const saved = localStorage.getItem(this.STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed.hrRest === 'number' && typeof parsed.tau === 'number' && typeof parsed.beta === 'number') {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load saved ODE profile:', e);
+    }
+    return this.getDefaults();
+  },
+
+  saveProfile(profile) {
+    try {
+      profile.calibratedAt = new Date().toLocaleTimeString();
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(profile));
+    } catch (e) {
+      console.warn('Failed to save ODE profile:', e);
+    }
+  },
+
+  calibrate(dataset) {
+    if (!dataset || !dataset.timesteps || dataset.timesteps.length < 8) {
+      return this.loadProfile();
+    }
+
+    const hrs = (dataset.pinn_pred && dataset.pinn_pred.length > 0) ? dataset.pinn_pred : dataset.hr_observed;
+    const workloads = dataset.workload || [];
+    const sqis = dataset.ppg_sqi || [];
+    const n = Math.min(dataset.timesteps.length, hrs.length);
+
+    // 1. Filter valid physiological data points
+    const valid = [];
+    for (let i = 0; i < n; i++) {
+      const hr = hrs[i];
+      const sqi = sqis[i] !== undefined ? sqis[i] : 0.85;
+      const w = workloads[i] !== undefined ? workloads[i] : 0.15;
+      if (hr >= 45 && hr <= 215 && sqi >= 0.35) {
+        valid.push({ t: dataset.timesteps[i], hr, workload: w, sqi });
+      }
+    }
+
+    if (valid.length < 6) {
+      return this.loadProfile();
+    }
+
+    // 2. Basal Resting Heart Rate (HR_rest)
+    // 15th percentile of low-workload quiescent periods
+    const quiescent = valid.filter(s => s.workload <= 0.22 && s.sqi >= 0.55);
+    let hrRest;
+    if (quiescent.length >= 4) {
+      const sorted = quiescent.map(s => s.hr).sort((a, b) => a - b);
+      const p15 = Math.max(0, Math.floor(sorted.length * 0.15));
+      hrRest = sorted[p15];
+    } else {
+      const sortedAll = valid.map(s => s.hr).sort((a, b) => a - b);
+      hrRest = sortedAll[Math.max(0, Math.floor(sortedAll.length * 0.10))];
+    }
+    hrRest = Math.max(48.0, Math.min(88.0, Math.round(hrRest * 10) / 10));
+
+    // 3. Vagal Recovery Time Constant (tau)
+    // dHR/dt = -(1/tau)*(HR - HR_rest) during low workload recovery
+    const tauEstimates = [];
+    for (let i = 1; i < valid.length; i++) {
+      const prev = valid[i - 1];
+      const curr = valid[i];
+      const dt = curr.t - prev.t;
+      if (dt <= 0 || dt > 4) continue;
+
+      if (curr.workload <= 0.28 && curr.hr > hrRest + 4.0 && curr.hr < prev.hr) {
+        const deltaHR = curr.hr - prev.hr; // negative
+        const excess = ((prev.hr + curr.hr) / 2.0) - hrRest;
+        if (excess > 3.0) {
+          const k = -deltaHR / (dt * excess);
+          if (k > 0.015 && k < 0.12) {
+            tauEstimates.push(1.0 / k);
+          }
+        }
+      }
+    }
+
+    let tau;
+    if (tauEstimates.length >= 2) {
+      tauEstimates.sort((a, b) => a - b);
+      const mid = Math.floor(tauEstimates.length / 2);
+      tau = tauEstimates.length % 2 === 0 ? (tauEstimates[mid - 1] + tauEstimates[mid]) / 2 : tauEstimates[mid];
+    } else {
+      // Dynamic variance proxy from heart rate dynamics
+      const meanHR = valid.reduce((acc, s) => acc + s.hr, 0) / valid.length;
+      const std = Math.sqrt(valid.reduce((acc, s) => acc + Math.pow(s.hr - meanHR, 2), 0) / valid.length);
+      tau = 18.0 + Math.max(0, 14.0 - std * 0.7);
+    }
+    tau = Math.max(12.0, Math.min(65.0, Math.round(tau * 10) / 10));
+
+    // 4. Sympathetic Workload Sensitivity Gain (beta)
+    // In ODE steady state: HR_max - HR_rest = tau * beta * workload
+    const maxHR = Math.max(...valid.map(s => s.hr));
+    const maxW = Math.max(0.3, ...valid.map(s => s.workload));
+    const beta = Math.max(1.2, Math.min(7.5, Math.round(((maxHR - hrRest) / (tau * maxW)) * 10) / 10));
+
+    // 5. Fitness Tier Classification
+    let fitnessTier;
+    if (tau <= 20.0 && hrRest <= 62.0) {
+      fitnessTier = 'Elite / Rapid Vagal Reactivity';
+    } else if (tau <= 28.0) {
+      fitnessTier = 'Athletic / Fast Recovery';
+    } else if (tau <= 42.0) {
+      fitnessTier = 'Active Baseline';
+    } else {
+      fitnessTier = 'Moderate Aerobic';
+    }
+
+    const confidence = valid.length > 50
+      ? `High Precision (${valid.length} Wearable Samples)`
+      : `Adaptive Calibration (${valid.length} Live Samples)`;
+
+    return {
+      hrRest,
+      tau,
+      beta,
+      fitnessTier,
+      confidence,
+      sampleCount: valid.length,
+      source: 'Personalized Smartwatch Telemetry'
+    };
+  }
+};
+
+function loadSavedODEProfile() {
+  const profile = AutoODECalibrator.loadProfile();
+  applyODEProfileToUI(profile);
+}
+
+function applyODEProfileToUI(profile) {
+  state.odeState.tau = profile.tau;
+  state.odeState.beta = profile.beta;
+  state.odeState.hrRest = profile.hrRest;
+
+  if (DOM.odeTauSlider) DOM.odeTauSlider.value = profile.tau;
+  if (DOM.odeTauVal) DOM.odeTauVal.textContent = `${profile.tau.toFixed(1)} s`;
+  if (DOM.odeBetaSlider) DOM.odeBetaSlider.value = profile.beta;
+  if (DOM.odeBetaVal) DOM.odeBetaVal.textContent = `${profile.beta.toFixed(1)}`;
+  if (DOM.odeRestSlider) DOM.odeRestSlider.value = profile.hrRest;
+  if (DOM.odeRestVal) DOM.odeRestVal.textContent = `${profile.hrRest.toFixed(0)} bpm`;
+
+  if (DOM.profileHRRest) DOM.profileHRRest.textContent = `${profile.hrRest.toFixed(0)} bpm`;
+  if (DOM.profileTau) DOM.profileTau.textContent = `${profile.tau.toFixed(1)} s`;
+  if (DOM.profileBeta) DOM.profileBeta.textContent = `${profile.beta.toFixed(1)}`;
+  if (DOM.profileFitnessTier) DOM.profileFitnessTier.textContent = profile.fitnessTier;
+  if (DOM.profileConfidence) DOM.profileConfidence.textContent = profile.confidence || 'Auto-Calibrated from Wearable';
+
+  if (DOM.liveOdeBadge) {
+    const tierShort = profile.fitnessTier.split('/')[0].trim();
+    DOM.liveOdeBadge.textContent = `Basal HR ${profile.hrRest.toFixed(0)} bpm • τ ${profile.tau.toFixed(1)}s • β ${profile.beta.toFixed(1)} (${tierShort})`;
+  }
+
+  runODESimulation();
+
+  // Inform backend server if running locally
+  fetch('/api/live/calibrate_ode', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      tau: profile.tau,
+      beta: profile.beta,
+      hr_rest: profile.hrRest
+    })
+  }).catch(() => {});
+}
+
+async function triggerODEAutoCalibration(isManual = false) {
+  let sourceData = state.clientBuffer || state.data;
+
+  // If live buffer is currently empty or has < 8 samples, and user explicitly clicks calibrate,
+  // calibrate from pre-recorded benchmark session history
+  if ((!sourceData || !sourceData.timesteps || sourceData.timesteps.length < 8) && isManual) {
+    try {
+      const res = await fetch('/api/telemetry?cutoff=350&artifact_intensity=1.0&noise_level=0.2');
+      if (res.ok) {
+        sourceData = await res.json();
+      }
+    } catch (e) {
+      console.warn('Could not load session benchmark for calibration:', e);
+    }
+  }
+
+  const profile = AutoODECalibrator.calibrate(sourceData);
+  AutoODECalibrator.saveProfile(profile);
+  applyODEProfileToUI(profile);
+
+  if (isManual) {
+    if (DOM.btnLiveCalibrateODE) {
+      DOM.btnLiveCalibrateODE.textContent = '✅ Calibrated!';
+      setTimeout(() => {
+        DOM.btnLiveCalibrateODE.textContent = '⚡ Auto-Calibrate ODE';
+      }, 2000);
+    }
+    if (DOM.btnAutoCalibrateODE) {
+      DOM.btnAutoCalibrateODE.textContent = '✅ Profile Calibrated!';
+      setTimeout(() => {
+        DOM.btnAutoCalibrateODE.textContent = '⚡ Calibrate from Watch History';
+      }, 2000);
+    }
+  }
 }
