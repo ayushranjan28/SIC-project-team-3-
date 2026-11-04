@@ -96,12 +96,19 @@ def parse_heart_rate_packet(data: bytearray) -> dict:
         offset += 2
 
     # Physiological clamp: human heart rate cannot be 20,000+ BPM
+    global LAST_CONFIRMED_HR
     if hr > 240 or hr < 30:
         if 10000 <= hr <= 65535:
             swapped = ((int(hr) & 0xFF) << 8) | ((int(hr) >> 8) & 0xFF)
             hr = swapped if (35 <= swapped <= 230) else 75.0
         else:
-            hr = max(40.0, min(220.0, float(hr)))
+            # If watch is currently in manual measurement acquisition (sending 0 BPM), preserve last confirmed HR
+            if 'LAST_CONFIRMED_HR' in globals() and 35.0 <= LAST_CONFIRMED_HR <= 220.0:
+                hr = LAST_CONFIRMED_HR
+            else:
+                hr = max(45.0, min(220.0, float(hr)))
+    else:
+        LAST_CONFIRMED_HR = float(hr)
 
     energy = None
     if energy_present and len(data) >= offset + 2:

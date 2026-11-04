@@ -881,11 +881,25 @@ function handleBluetoothHeartRateNotification(event) {
   if (hr > 240 || hr < 30) {
     if (hr >= 10000 && hr <= 65535) {
       const swapped = ((Math.round(hr) & 0xFF) << 8) | ((Math.round(hr) >> 8) & 0xFF);
-      hr = (swapped >= 35 && swapped <= 230) ? swapped : 75;
-    } else {
-      hr = Math.min(220, Math.max(45, hr));
+      if (swapped >= 35 && swapped <= 230) {
+        hr = swapped;
+      }
+    }
+    
+    // When a manual measurement starts on Galaxy Watch, it sends 0 BPM while acquiring lock.
+    // Hold the last confirmed valid HR instead of clamping down to 45.0 BPM!
+    if (hr < 30 || hr > 240) {
+      if (state.liveWatch.lastValidHr && state.liveWatch.lastValidHr >= 35 && state.liveWatch.lastValidHr <= 220) {
+        hr = state.liveWatch.lastValidHr;
+      } else {
+        // Awaiting first pulse lock from watch
+        return;
+      }
     }
   }
+
+  // Update confirmed valid HR
+  state.liveWatch.lastValidHr = hr;
 
   const sqi = contactDetected ? 0.95 : 0.45;
   state.liveWatch.sessionPackets = (state.liveWatch.sessionPackets || 0) + 1;
