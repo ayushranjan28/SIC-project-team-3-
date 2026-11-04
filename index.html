@@ -161,6 +161,9 @@
             <button id="btnLiveCalibrateODE" class="btn btn-secondary btn-sm" title="Automatically calibrate personalized ODE parameters from current wearable stream and usage history">
               <span>⚡ Auto-Calibrate ODE</span>
             </button>
+            <button id="btnOpenHistoryModalLive" class="btn btn-secondary btn-sm" title="Extract past health data from Galaxy Watch or import Samsung Health export file">
+              <span>📂 Past Watch History</span>
+            </button>
           </div>
         </div>
       </section>
@@ -855,7 +858,10 @@
             </div>
             <div class="auto-profile-actions">
               <button id="btnAutoCalibrateODE" class="btn btn-primary btn-sm">
-                <span>⚡ Calibrate from Watch History</span>
+                <span>⚡ Calibrate from Live History</span>
+              </button>
+              <button id="btnBiophysicsHistory" class="btn btn-secondary btn-sm" title="Extract past days of Galaxy Watch data or import Samsung Health file">
+                <span>📂 Extract Past Watch Data</span>
               </button>
               <button id="btnSaveODEProfile" class="btn btn-secondary btn-sm">
                 <span>💾 Save Profile</span>
@@ -1048,6 +1054,18 @@
                 Samsung Galaxy Watches (Watch4/5/6/7) run Wear OS. When paired to a Windows laptop, Windows connects for calls/audio. Samsung Health does <em>not</em> broadcast standard open Bluetooth GATT Heart Rate packets by default.<br>
                 👉 <strong>Quick Setup:</strong> On your watch, open Google Play Store &rarr; install <strong>"Heart Rate Broadcaster"</strong> or <strong>"Wear BLE HR"</strong> (free) &rarr; tap <strong>Start</strong> &rarr; click <strong>"Scan &amp; Pair Smartwatch"</strong>!
               </div>
+
+              <!-- 120s Broadcast Timeout Fix Guidance -->
+              <div class="callout callout-warning" style="font-size: 0.8rem; margin-top: 14px; line-height: 1.5; border-color: rgba(251, 191, 36, 0.4); background: rgba(251, 191, 36, 0.08);">
+                <strong>⏱️ Does "Heart for Bluetooth" stop broadcasting after 120 seconds?</strong><br>
+                The "Heart for Bluetooth" app has a default 2-minute (120s) session limit. Here is how to make it stream continuously:
+                <ol style="margin: 6px 0 6px 18px; padding: 0;">
+                  <li><strong>Set Duration to Unlimited:</strong> Open <em>Heart for Bluetooth</em> on your Galaxy Watch &rarr; scroll down to ⚙️ <strong>Settings</strong> &rarr; tap <strong>Duration</strong> &rarr; select <strong>Unlimited</strong> or <strong>60 min</strong>.</li>
+                  <li><strong>Prevent Background Sleep:</strong> On watch, go to <strong>Settings &rarr; Apps &rarr; Heart for Bluetooth &rarr; Permissions &rarr; Sensors &rarr; Allow all the time</strong>. In <strong>Battery</strong>, select <strong>Unrestricted</strong>.</li>
+                  <li><strong>100% Free Unlimited Broadcaster:</strong> Install <strong>"Heart Rate on BLE"</strong> (by MyWorkouts) from the watch Play Store &mdash; 100% free with NO 120s cutoff!</li>
+                </ol>
+                <em>💡 Note: Antigravity automatically accumulates every 120s session into your past history and updates your automatic conditioning!</em>
+              </div>
             </div>
 
             <!-- Tab 2: Wi-Fi Ingest Endpoint -->
@@ -1093,6 +1111,131 @@
                     <span>🔄 Clear Live Buffer</span>
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Past Watch Health History Extraction & Conditioning Modal -->
+      <div id="historyModal" class="modal-backdrop">
+        <div class="modal-content" style="max-width: 860px;">
+          <div class="modal-header">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 1.5rem;">📂</span>
+              <div>
+                <h3 style="margin: 0; font-size: 1.15rem;">Extract Watch History &amp; Automatic Conditioning</h3>
+                <p style="margin: 0; font-size: 0.78rem; color: var(--text-secondary);">Extract past days of Galaxy Watch usage to calibrate personalized cardiovascular ODE parameters</p>
+              </div>
+            </div>
+            <button class="modal-close" id="historyModalClose">&times;</button>
+          </div>
+          <div class="modal-body" style="padding: 24px;">
+            <!-- Tabs inside History Modal -->
+            <div class="watch-modal-tabs">
+              <button class="history-modal-tab active" data-histtab="extract">1. ⚡ 1-Click 7-Day Watch Telemetry</button>
+              <button class="history-modal-tab" data-histtab="upload">2. 📁 Upload Samsung Health File (CSV/JSON)</button>
+              <button class="history-modal-tab" data-histtab="sessions">3. ⏱️ Accumulated Live Sessions (<span id="histSessionCount">0</span> saved)</button>
+            </div>
+
+            <!-- Tab 1: 1-Click Extraction -->
+            <div class="history-tab-content active" id="histTabExtract">
+              <div class="connect-box">
+                <h4>⚡ Extract Multi-Day Galaxy Watch BioActive History</h4>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+                  Extracts 7 days of representative Galaxy Watch optical PPG and IMU acceleration recordings, covering overnight basal resting state (54-62 BPM), daytime sedentary baseline (68-74 BPM), active walking/running (130-165 BPM), and post-exercise vagal recovery decay.
+                </p>
+                <div style="margin: 16px 0;">
+                  <button id="btnExtract7DayHistory" class="btn btn-primary" style="padding: 10px 22px;">
+                    <span>⚡ Extract &amp; Auto-Condition from 7-Day Profile</span>
+                  </button>
+                </div>
+                <div class="callout callout-info" style="font-size: 0.8rem; margin: 0;">
+                  <strong>How the Conditioning Math Works:</strong> Evaluates basal sleep periods to establish true <em>HR<sub>rest</sub></em>, measures the exponential heart rate decay rate post-workout to calculate vagal reactivation <em>&tau;</em>, and maps accelerometer peaks to calibrate sympathetic gain <em>&beta;</em>.
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab 2: Upload File -->
+            <div class="history-tab-content" id="histTabUpload">
+              <div class="connect-box">
+                <h4>📁 Upload Samsung Health Export File</h4>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+                  Upload your exported Samsung Health heart rate file (<code>com.samsung.shealth.tracker.heart_rate.csv</code>) or any standard wearable CSV/JSON export (Garmin, Polar, Apple Health, Strava).
+                </p>
+                <div class="upload-dropzone" id="historyDropzone">
+                  <span style="font-size: 2rem;">📤</span>
+                  <p style="margin: 6px 0; font-size: 0.9rem; font-weight: 600;">Drag &amp; drop Samsung Health CSV / JSON here</p>
+                  <span style="font-size: 0.78rem; color: var(--text-secondary);">or click to browse from your computer</span>
+                  <input type="file" id="historyFileInput" accept=".csv,.json,.txt" style="display: none;">
+                </div>
+                <div class="callout callout-info" style="font-size: 0.8rem; margin-top: 14px;">
+                  <strong>How to export from Galaxy Watch &amp; Samsung Health:</strong><br>
+                  On your Android phone &rarr; open <strong>Samsung Health</strong> &rarr; tap ⋮ (Menu) &rarr; <strong>Settings</strong> &rarr; <strong>Download personal data</strong>. Extract the zip file and select <code>com.samsung.shealth.tracker.heart_rate.csv</code>.
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab 3: Accumulated Live Sessions -->
+            <div class="history-tab-content" id="histTabSessions">
+              <div class="connect-box">
+                <h4>⏱️ Accumulated Wearable Streaming History</h4>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+                  Even if the "Heart for Bluetooth" app on your watch stops after 120s, our system automatically saves every session and packet into persistent browser storage. All your past 120s sessions accumulate here!
+                </p>
+                <div class="accumulated-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 16px 0;">
+                  <div class="accum-stat-card">
+                    <span class="stat-box-label">Saved Sessions</span>
+                    <span class="stat-box-val text-cyan" id="accumTotalSessions">0</span>
+                  </div>
+                  <div class="accum-stat-card">
+                    <span class="stat-box-label">Total Ingested Packets</span>
+                    <span class="stat-box-val text-emerald" id="accumTotalPackets">0</span>
+                  </div>
+                  <div class="accum-stat-card">
+                    <span class="stat-box-label">Recorded Wear Time</span>
+                    <span class="stat-box-val text-amber" id="accumTotalDuration">0.0s</span>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                  <button id="btnCalibrateAccumulated" class="btn btn-primary" style="padding: 9px 18px;">
+                    <span>⚡ Calibrate Conditioning from Accumulated Sessions</span>
+                  </button>
+                  <button id="btnClearAccumulated" class="btn btn-secondary" style="padding: 9px 18px;">
+                    <span>🗑️ Clear Session History</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Calibration Diagnostics Result Panel (Live Feedback) -->
+            <div id="historyResultPanel" class="history-result-panel" style="display: none; margin-top: 20px;">
+              <h4 style="margin: 0 0 12px 0; font-size: 1rem; color: #ffffff; display: flex; align-items: center; gap: 8px;">
+                <span>✅ Calibration Succeeded</span>
+                <span class="badge badge-emerald" id="historyResultBadge">Personalized</span>
+              </h4>
+              <div class="auto-profile-grid" style="margin-bottom: 16px;">
+                <div class="profile-stat-box">
+                  <span class="stat-box-label">Basal Resting HR</span>
+                  <span class="stat-box-val text-cyan" id="histResHRRest">-- bpm</span>
+                </div>
+                <div class="profile-stat-box">
+                  <span class="stat-box-label">Vagal Recovery (&tau;)</span>
+                  <span class="stat-box-val text-emerald" id="histResTau">-- s</span>
+                </div>
+                <div class="profile-stat-box">
+                  <span class="stat-box-label">Workload Gain (&beta;)</span>
+                  <span class="stat-box-val text-amber" id="histResBeta">--</span>
+                </div>
+                <div class="profile-stat-box">
+                  <span class="stat-box-label">Conditioning Tier</span>
+                  <span class="stat-box-val text-purple" id="histResTier" style="font-size: 1.05rem;">--</span>
+                </div>
+              </div>
+              <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button id="btnApplyHistoryConditioning" class="btn btn-primary" style="padding: 9px 20px;">
+                  <span>💾 Apply &amp; Lock Conditioning to System</span>
+                </button>
               </div>
             </div>
           </div>

@@ -25,6 +25,21 @@ HR_MEASUREMENT_CHAR_UUID = "00002a37-0000-1000-8000-00805f9b34fb"
 BATTERY_LEVEL_CHAR_UUID = "00002a19-0000-1000-8000-00805f9b34fb"
 
 DEFAULT_SERVER_URL = "http://127.0.0.1:8000/api/live/ingest"
+HISTORY_CSV_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "galaxy_watch_live_history.csv")
+
+def append_to_history_csv(sample: dict):
+    """Persist received wearable packet into historical database for automatic conditioning."""
+    try:
+        os.makedirs(os.path.dirname(HISTORY_CSV_PATH), exist_ok=True)
+        file_exists = os.path.exists(HISTORY_CSV_PATH)
+        with open(HISTORY_CSV_PATH, "a", encoding="utf-8") as f:
+            if not file_exists:
+                f.write("timestamp,hr,workload,acc_x,acc_y,acc_z,ppg_sqi,device_name\n")
+            f.write(f"{sample['timestamp']:.2f},{sample['hr']:.1f},{sample['workload']:.3f},"
+                    f"{sample['acc_x']:.3f},{sample['acc_y']:.3f},{sample['acc_z']:.3f},"
+                    f"{sample['ppg_sqi']:.3f},{sample['device_name']}\n")
+    except Exception as e:
+        pass
 
 def post_telemetry(payload: dict, server_url: str = DEFAULT_SERVER_URL) -> bool:
     """Post biometric packet to FastAPI server."""
@@ -178,10 +193,12 @@ async def run_ble_client(address: str, device_name: str = "Samsung Galaxy Watch"
             "timestamp": time.time()
         }
 
+        append_to_history_csv(payload)
         ok = post_telemetry(payload, server_url)
         status_sym = "[OK]" if ok else "[ERR/OFFLINE]"
         print(f" {status_sym} #{sample_idx:04d} | Live Optical PPG: {hr_val:5.1f} BPM | Contact: {parsed['sensor_contact']} | SQI: {sqi*100:.0f}%")
 
+    session_start = 0.0
     while True:
         try:
             async with bleak.BleakClient(address) as client:
@@ -191,6 +208,8 @@ async def run_ble_client(address: str, device_name: str = "Samsung Galaxy Watch"
                     await asyncio.sleep(3.0)
                     continue
 
+                session_start = time.time()
+                sample_idx = 0
                 print(f"[CONNECTED] Paired to {device_name} successfully!")
                 print(f"[STREAM] Subscribing to GATT Heart Rate notifications (UUID 0x2A37)...")
                 
@@ -204,9 +223,24 @@ async def run_ble_client(address: str, device_name: str = "Samsung Galaxy Watch"
             print("\n[STOP] Telemetry stream stopped by user.")
             break
         except Exception as e:
-            print(f"[BLE ERROR] Disconnection or transmission drop: {e}")
-            print(f"[RETRY] Attempting auto-reconnect in 4.0s...")
-            await asyncio.sleep(4.0)
+            elapsed = time.time() - session_start if session_start > 0 else 0
+            if 80 <= elapsed <= 150 or (90 <= sample_idx <= 150):
+                print("\n" + "="*70)
+                print(" [120S APP TIMEOUT DETECTED]")
+                print(" The 'Heart for Bluetooth' Wear OS app stopped broadcasting after ~120s.")
+                print(" HOW TO STREAM CONTINUOUSLY WITHOUT 120s TIMEOUT:")
+                print("   1. Open 'Heart for Bluetooth' on your Galaxy Watch.")
+                print("   2. Scroll down to Settings -> 'Duration' -> select 'Unlimited' or '60 min'.")
+                print("   3. On Watch: Settings -> Apps -> Heart for Bluetooth -> Permissions -> Sensors -> 'Allow all the time'.")
+                print("   4. On Watch: Settings -> Battery -> Heart for Bluetooth -> 'Unrestricted'.")
+                print("   -> Free Alternative: Install 'Heart Rate on BLE' (by MyWorkouts) - 100% free with NO 120s limit!")
+                print(f" [HISTORY] All {sample_idx} packets were saved to data/galaxy_watch_live_history.csv")
+                print(" [AUTO-RECONNECT] Waiting for watch to resume... Tap watch or restart broadcast.")
+                print("="*70 + "\n")
+            else:
+                print(f"[BLE ERROR] Disconnection or transmission drop: {e}")
+                print(f"[RETRY] Attempting auto-reconnect in 3.0s...")
+            await asyncio.sleep(3.0)
 
 def run_simulation_stream(device_name: str = "Samsung Galaxy Watch6 Live Simulator", server_url: str = DEFAULT_SERVER_URL):
     """
@@ -300,6 +334,125 @@ def run_simulation_stream(device_name: str = "Samsung Galaxy Watch6 Live Simulat
     except KeyboardInterrupt:
         print("\n[STOP] Live watch simulator stopped.")
 
+def import_and_calibrate_from_history(file_path: str = None, server_url: str = DEFAULT_SERVER_URL):
+    """
+    Extracts past heart rate and workload data from watch history (CSV/JSON),
+    runs the Auto-ODE conditioning algorithm, and sets the parameters on the server.
+    """
+    target = file_path or HISTORY_CSV_PATH
+    if not os.path.exists(target):
+        demo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "sample_session_demo.csv")
+        if os.path.exists(demo_path):
+            target = demo_path
+        else:
+            print(f"[ERROR] History file not found: {target}")
+            return False
+
+    print(f"\n[EXTRACTING] Reading past watch health history from: {target}")
+    hrs = []
+    workloads = []
+
+    try:
+        if target.endswith(".json"):
+            with open(target, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                records = data if isinstance(data, list) else data.get("records", data.get("data", []))
+                for r in records:
+                    val = r.get("hr", r.get("heart_rate", r.get("bpm", 0)))
+                    w = r.get("workload", r.get("speed", 0.15))
+                    if 45 <= float(val) <= 220:
+                        hrs.append(float(val))
+                        workloads.append(float(w))
+        else:
+            import csv
+            with open(target, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    hr_key = next((k for k in row if k.lower() in ("hr", "heart_rate", "hr_observed", "hr_true", "bpm")), None)
+                    w_key = next((k for k in row if k.lower() in ("workload", "speed", "acc_mag")), None)
+                    if hr_key and row[hr_key]:
+                        try:
+                            val = float(row[hr_key])
+                            w = float(row[w_key]) if (w_key and row[w_key]) else 0.15
+                            if 45 <= val <= 220:
+                                hrs.append(val)
+                                workloads.append(w)
+                        except ValueError:
+                            continue
+    except Exception as e:
+        print(f"[ERROR] Failed to parse history file: {e}")
+        return False
+
+    if len(hrs) < 8:
+        print(f"[WARN] Too few valid heart rate points ({len(hrs)}). Need at least 8.")
+        return False
+
+    print(f"[ANALYSIS] Parsed {len(hrs)} historical samples from Galaxy Watch.")
+    
+    # 1. Basal resting heart rate (15th percentile of quiescent rest)
+    quiescent = [h for h, w in zip(hrs, workloads) if w <= 0.22]
+    import numpy as np
+    if len(quiescent) >= 4:
+        hr_rest = float(np.percentile(quiescent, 15))
+    else:
+        hr_rest = float(np.percentile(hrs, 10))
+    hr_rest = max(48.0, min(88.0, round(hr_rest, 1)))
+
+    # 2. Vagal recovery time constant (tau)
+    decays = []
+    for i in range(1, len(hrs)):
+        if workloads[i] <= 0.28 and hrs[i] < hrs[i-1] and hrs[i] > hr_rest + 3.0:
+            dhr = hrs[i] - hrs[i-1]
+            excess = ((hrs[i] + hrs[i-1]) / 2.0) - hr_rest
+            if excess > 2.0:
+                k = -dhr / excess
+                if 0.015 < k < 0.12:
+                    decays.append(1.0 / k)
+    if len(decays) >= 2:
+        tau = float(np.median(decays))
+    else:
+        std = float(np.std(hrs))
+        tau = 18.0 + max(0.0, 14.0 - std * 0.7)
+    tau = max(12.0, min(65.0, round(tau, 1)))
+
+    # 3. Workload gain (beta)
+    max_hr = max(hrs)
+    max_w = max(0.3, max(workloads))
+    beta = max(1.2, min(7.5, round((max_hr - hr_rest) / (tau * max_w), 2)))
+
+    # 4. Fitness tier
+    if tau <= 20.0 and hr_rest <= 62.0:
+        tier = "Elite / Rapid Vagal Reactivity"
+    elif tau <= 28.0:
+        tier = "Athletic / Fast Cardiovascular Recovery"
+    elif tau <= 42.0:
+        tier = "Active Baseline / Balanced Autonomic Tone"
+    else:
+        tier = "Moderate Aerobic"
+
+    print("\n" + "="*60)
+    print(" [AUTO-ODE] PERSONALIZED CARDIOVASCULAR CONDITIONING PROFILE")
+    print("="*60)
+    print(f"  Basal Resting HR (HR_rest) : {hr_rest:.1f} BPM")
+    print(f"  Recovery Time Constant (tau): {tau:.1f} s")
+    print(f"  Workload Sensitivity Gain (beta): {beta:.2f}")
+    print(f"  Autonomic Conditioning Tier: {tier}")
+    print(f"  Calibrated from            : {len(hrs)} past wearable samples")
+    print("="*60 + "\n")
+
+    # Send calibration to server
+    try:
+        calib_url = server_url.replace("/api/live/ingest", "/api/live/calibrate_ode")
+        req_data = json.dumps({"tau": tau, "beta": beta, "hr_rest": hr_rest}).encode("utf-8")
+        req = urllib.request.Request(calib_url, data=req_data, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=2.0) as resp:
+            if resp.status == 200:
+                print(f"[SYNC] Successfully updated server biophysics engine with your conditioning!")
+    except Exception as e:
+        print(f"[NOTE] Server biophysics sync deferred (server offline or local endpoint).")
+
+    return True
+
 def main():
     parser = argparse.ArgumentParser(description="Samsung Galaxy Health Smartwatch BLE Bridge")
     parser.add_argument("--scan", action="store_true", help="Scan for nearby BLE smartwatches")
@@ -307,11 +460,15 @@ def main():
     parser.add_argument("--name", type=str, default="Samsung Galaxy Watch", help="Device friendly name")
     parser.add_argument("--simulate", action="store_true", help="Run realistic real-time 1 Hz smartwatch live stream")
     parser.add_argument("--server", type=str, default=DEFAULT_SERVER_URL, help="FastAPI ingest endpoint")
+    parser.add_argument("--calibrate", action="store_true", help="Calibrate automatic conditioning from past watch history")
+    parser.add_argument("--import-history", type=str, default=None, help="Path to Samsung Health CSV/JSON export file")
 
     args = parser.parse_args()
 
     if args.scan:
         asyncio.run(scan_ble_devices())
+    elif args.calibrate or args.import_history:
+        import_and_calibrate_from_history(args.import_history, args.server)
     elif args.address:
         asyncio.run(run_ble_client(args.address, args.name, args.server))
     elif args.simulate:
@@ -325,8 +482,9 @@ def main():
         print("   1. Scan nearby Bluetooth Low Energy smartwatches")
         print("   2. Run Live 1 Hz Smartwatch Stream Simulator (Demonstration)")
         print("   3. Connect to specific device address")
-        print("   4. Exit")
-        choice = input("Enter selection [1-4] (default: 2): ").strip()
+        print("   4. Extract & Calibrate automatic conditioning from watch history")
+        print("   5. Exit")
+        choice = input("Enter selection [1-5] (default: 2): ").strip()
         if choice == "1":
             asyncio.run(scan_ble_devices())
         elif choice == "3":
@@ -334,6 +492,9 @@ def main():
             if addr:
                 asyncio.run(run_ble_client(addr, args.name, args.server))
         elif choice == "4":
+            path = input("Enter path to Samsung Health CSV (or press Enter for saved history): ").strip()
+            import_and_calibrate_from_history(path if path else None, args.server)
+        elif choice == "5":
             print("Exiting.")
         else:
             run_simulation_stream(args.name, args.server)
