@@ -1093,11 +1093,25 @@ async function resetLiveBuffer() {
 async function fetchLiveTelemetry() {
   if (state.mode !== 'live') return;
 
+  // If the browser is actively streaming via Web Bluetooth or Simulator,
+  // the client buffer is already the active single source of truth.
+  if (state.clientBuffer && state.clientBuffer.timesteps.length > 0) {
+    if (state.liveWatch.isSimulating || state.liveWatch.connected) {
+      return; // Do not let polling overwrite the active client stream
+    }
+  }
+
   try {
     const res = await fetch('/api/live/telemetry');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const data = await res.json();
+
+    // Prevent sample count oscillation: never let a lower server count overwrite a higher client count
+    if (state.clientBuffer && state.clientBuffer.timesteps.length >= data.timesteps.length) {
+      return;
+    }
+
     state.data = data;
 
     if (data.timesteps && data.timesteps.length > 0) {
@@ -1123,7 +1137,9 @@ async function fetchLiveTelemetry() {
       updateTelemetryCharts(data);
       updateDataDifferenceSection(data);
     } else {
-      clearLiveTelemetryUI();
+      if (!state.clientBuffer || state.clientBuffer.timesteps.length === 0) {
+        clearLiveTelemetryUI();
+      }
     }
   } catch (err) {
     console.warn('Live telemetry poll error:', err);
