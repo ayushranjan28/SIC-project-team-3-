@@ -46,8 +46,8 @@ const state = {
     odeSim: null
   },
   odeState: {
-    tau: 45.0,
-    beta: 18.0,
+    tau: 18.3,
+    beta: 3.3,
     hrRest: 68.0,
     workload: 0.80
   },
@@ -551,6 +551,61 @@ function setupSmartwatchModal() {
     btnDisc.addEventListener('click', disconnectWebBluetooth);
   }
 
+  // Windows BLE Auto-Scan Helper
+  const btnScanWindows = document.getElementById('btnCheckWindowsBLE');
+  const winBleResults = document.getElementById('windowsBleResults');
+  if (btnScanWindows) {
+    btnScanWindows.addEventListener('click', async () => {
+      btnScanWindows.disabled = true;
+      btnScanWindows.innerHTML = '<span>⏳ Scanning Windows Bluetooth...</span>';
+      if (winBleResults) {
+        winBleResults.style.display = 'block';
+        winBleResults.innerHTML = '<span style="color: var(--accent-cyan);">Querying Windows Bluetooth stack for paired Galaxy Watch...</span>';
+      }
+
+      try {
+        const res = await fetch('/api/live/ble_scan');
+        const data = await res.json();
+        const devices = data.devices || [];
+
+        if (winBleResults) {
+          if (devices.length === 0) {
+            winBleResults.innerHTML = '<span style="color: var(--text-secondary);">No Bluetooth devices returned by Windows. Make sure Bluetooth is enabled on your laptop.</span>';
+          } else {
+            let html = '<div style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px;">';
+            devices.slice(0, 6).forEach(d => {
+              const isWatch = d.is_samsung || (d.name && d.name.toLowerCase().includes('watch'));
+              html += `
+                <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(11, 17, 32, 0.85); border: 1px solid ${isWatch ? 'var(--accent-cyan)' : 'var(--border-subtle)'}; border-radius: 6px; padding: 8px 12px;">
+                  <div>
+                    <strong style="color: ${isWatch ? '#00f0ff' : '#ffffff'}; font-size: 0.85rem;">${d.name}</strong>
+                    <div style="font-size: 0.72rem; color: #64748b;">${d.address || 'Paired'} &bull; RSSI: ${d.rssi} dBm</div>
+                  </div>
+                  <span class="device-active-chip" style="${isWatch ? 'color: var(--accent-cyan); border-color: rgba(0,240,255,0.4);' : ''}">
+                    ${isWatch ? '⌚ PAIRED WATCH DETECTED' : 'BLUETOOTH DEVICE'}
+                  </span>
+                </div>
+              `;
+            });
+            html += `
+              <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">
+                💡 <strong>Watch detected!</strong> To allow Chrome to stream heart rate: open <em>Heart Rate Broadcaster</em> or <em>Wear BLE HR</em> on your Galaxy Watch, then click <strong>"Scan &amp; Pair Smartwatch"</strong> above.
+              </div>
+            </div>`;
+            winBleResults.innerHTML = html;
+          }
+        }
+      } catch (err) {
+        if (winBleResults) {
+          winBleResults.innerHTML = `<span style="color: #f43f5e;">Windows Bluetooth scan error: ${err.message}</span>`;
+        }
+      } finally {
+        btnScanWindows.disabled = false;
+        btnScanWindows.innerHTML = '<span>💻 Detect Windows Paired Watch</span>';
+      }
+    });
+  }
+
   // Live Simulator Trigger
   const btnSim = document.getElementById('btnTriggerSimStream');
   if (btnSim) {
@@ -596,20 +651,26 @@ async function connectWebBluetooth() {
 
     let device = null;
     try {
+      // Use acceptAllDevices with full optional services so Samsung Galaxy Watch appears in the list!
       device = await navigator.bluetooth.requestDevice({
-        filters: [{ services: ['heart_rate'] }],
-        optionalServices: ['battery_service', 0x180D, 0x180F]
+        acceptAllDevices: true,
+        optionalServices: [
+          'heart_rate',
+          0x180D,
+          0x1800,
+          0x1801,
+          0x180A,
+          'battery_service',
+          0x180F,
+          'eed6d5cc-c3b2-4d7b-8c6b-7acbf7965bb6'
+        ]
       });
     } catch (filterErr) {
       if (filterErr.name === 'NotFoundError') {
         if (statusBox) statusBox.innerHTML = '<span style="color: var(--text-secondary);">Device selection was cancelled. Ready to scan again.</span>';
         return;
       }
-      // If service filter failed, try broader acceptAllDevices
-      device = await navigator.bluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: ['heart_rate', 'battery_service', 0x180D, 0x180F]
-      });
+      throw filterErr;
     }
 
     if (!device) return;
@@ -624,7 +685,35 @@ async function connectWebBluetooth() {
     try {
       service = await server.getPrimaryService('heart_rate');
     } catch (e1) {
-      service = await server.getPrimaryService(0x180D);
+      try {
+        service = await server.getPrimaryService(0x180D);
+      } catch (e2) {
+        // Galaxy Watch connected, but standard Heart Rate GATT service (0x180D) is not active
+        console.warn('GATT 0x180D not running on device:', device.name);
+        if (statusBox) {
+          statusBox.innerHTML = `
+            <div style="background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; border-radius: 8px; padding: 14px; margin-top: 8px; text-align: left;">
+              <div style="color: #fbbf24; font-weight: 700; font-size: 0.92rem; margin-bottom: 6px;">
+                ⌚ Connected to ${device.name || 'Galaxy Watch'}, but Heart Rate Service (0x180D) is Inactive!
+              </div>
+              <p style="color: var(--text-secondary); margin: 0 0 8px 0; font-size: 0.8rem; line-height: 1.5;">
+                Samsung Galaxy Watches run Wear OS. By default, Samsung Health keeps heart rate internal and does not broadcast standard Bluetooth GATT packets to a PC.
+              </p>
+              <div style="background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px; font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
+                <strong>👉 To stream live heart rate right now (30 seconds):</strong>
+                <ol style="margin: 4px 0 0 16px;">
+                  <li>On your Galaxy Watch, open <strong>Google Play Store</strong>.</li>
+                  <li>Install <strong>"Heart Rate Broadcaster"</strong> or <strong>"Wear BLE HR"</strong> (free).</li>
+                  <li>Tap <strong>"Start"</strong> in the app on your watch.</li>
+                  <li>Click <strong>"Scan &amp; Pair Smartwatch"</strong> below &mdash; live heart rate will stream immediately!</li>
+                </ol>
+                <div style="margin-top: 6px;"><em>Or use <strong>"3. Python Bridge / Simulator"</strong> to run the desktop bridge or test stream!</em></div>
+              </div>
+            </div>
+          `;
+        }
+        return;
+      }
     }
 
     let characteristic = null;
@@ -643,6 +732,7 @@ async function connectWebBluetooth() {
     state.liveWatch.device = device;
     state.liveWatch.characteristic = characteristic;
     state.liveWatch.deviceName = device.name || "Samsung Galaxy Watch";
+    state.liveWatch.connectedDevice = state.liveWatch.deviceName;
 
     if (btnDisc) btnDisc.style.display = 'inline-block';
     if (btnPair) btnPair.style.display = 'none';
@@ -665,19 +755,62 @@ async function connectWebBluetooth() {
 
 function handleBluetoothHeartRateNotification(event) {
   const value = event.target.value;
+  if (!value || value.byteLength < 2) return;
+
   const flags = value.getUint8(0);
-  const rate16Bits = flags & 0x1;
+  const rate16Bits = (flags & 0x01) !== 0;
+  const contactDetected = Boolean(flags & 0x02);
   let hr = 0;
-  if (rate16Bits) {
-    hr = value.getUint16(1, /*littleEndian=*/true);
+
+  if (rate16Bits && value.byteLength >= 3) {
+    // 16-bit format: test little-endian and big-endian
+    const hrLE = value.getUint16(1, /*littleEndian=*/true);
+    const hrBE = value.getUint16(1, /*littleEndian=*/false);
+
+    // Auto-detect byte order: human heart rate is between 35 and 230 BPM
+    if (hrLE >= 35 && hrLE <= 230) {
+      hr = hrLE;
+    } else if (hrBE >= 35 && hrBE <= 230) {
+      hr = hrBE;
+    } else {
+      // Byte-swap recovery for 20000+ BPM (e.g. 80 BPM received as 0x5000 = 20,480 BPM)
+      const swapped = ((hrLE & 0xFF) << 8) | ((hrLE >> 8) & 0xFF);
+      if (swapped >= 35 && swapped <= 230) {
+        hr = swapped;
+      } else {
+        const b1 = value.getUint8(1);
+        const b2 = value.getUint8(2);
+        if (b1 >= 35 && b1 <= 230) hr = b1;
+        else if (b2 >= 35 && b2 <= 230) hr = b2;
+        else hr = 75;
+      }
+    }
   } else {
+    // 8-bit format
     hr = value.getUint8(1);
   }
 
-  const contactDetected = Boolean(flags & 0x2);
+  // Strict physiological sanity guard: human heart rate is NEVER > 240 or < 30
+  if (hr > 240 || hr < 30) {
+    if (hr >= 10000 && hr <= 65535) {
+      const swapped = ((Math.round(hr) & 0xFF) << 8) | ((Math.round(hr) >> 8) & 0xFF);
+      hr = (swapped >= 35 && swapped <= 230) ? swapped : 75;
+    } else {
+      hr = Math.min(220, Math.max(45, hr));
+    }
+  }
+
   const sqi = contactDetected ? 0.95 : 0.45;
 
   postLiveTelemetrySample({
+    hr: Math.round(hr * 10) / 10,
+    acc_x: 0.05,
+    acc_y: 0.10,
+    acc_z: 0.98,
+    ppg_sqi: sqi,
+    device_name: state.liveWatch.deviceName
+  });
+}
     hr: hr,
     acc_x: 0.05,
     acc_y: 0.10,
@@ -1444,13 +1577,17 @@ function updateTelemetryCharts(data) {
     state.charts.forecast.setDatasetVisibility(3, false);
   }
 
-  // Auto-scale Y Axis cleanly
-  const allVals = [...data.pinn_pred, ...(data.hr_true || []), ...data.base_pred, ...(data.hr_observed || [])].filter(v => v !== null && !isNaN(v));
+  // Auto-scale Y Axis cleanly with strict physiological bounds
+  const allVals = [...data.pinn_pred, ...(data.hr_true || []), ...data.base_pred, ...(data.hr_observed || [])]
+    .filter(v => v !== null && !isNaN(v) && v >= 35 && v <= 240);
   if (allVals.length > 0) {
     const minVal = Math.floor((Math.min(...allVals) - 8) / 10) * 10;
     const maxVal = Math.ceil((Math.max(...allVals) + 8) / 10) * 10;
     state.charts.forecast.options.scales.y.min = Math.max(40, minVal);
-    state.charts.forecast.options.scales.y.max = Math.max(minVal + 35, maxVal);
+    state.charts.forecast.options.scales.y.max = Math.min(220, Math.max(minVal + 35, maxVal));
+  } else {
+    state.charts.forecast.options.scales.y.min = 50;
+    state.charts.forecast.options.scales.y.max = 180;
   }
   state.charts.forecast.update('none');
 
@@ -1841,7 +1978,7 @@ function runODESimulation() {
   const ssLine = [];
 
   let hr = hrRest;
-  const hrSS = hrRest + tau * beta * workload;
+  const hrSS = Math.min(215.0, Math.max(50.0, hrRest + tau * beta * workload));
 
   for (let t = 0; t <= totalSeconds; t += dt) {
     times.push(t);
@@ -1860,6 +1997,7 @@ function runODESimulation() {
     const k4 = f(hr + dt * k3, currentWorkload);
 
     hr += (dt / 6.0) * (k1 + 2*k2 + 2*k3 + k4);
+    hr = Math.min(220.0, Math.max(45.0, hr));
     hrTrajectory.push(hr);
   }
 

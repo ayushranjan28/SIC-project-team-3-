@@ -57,3 +57,8 @@ def api_alias_live_status():
     from dashboard.server import get_live_status
     return get_live_status()
 
+@app.get("/live/ble_scan")
+async def api_alias_live_ble_scan():
+    from dashboard.server import get_live_ble_scan
+    return await get_live_ble_scan()
+

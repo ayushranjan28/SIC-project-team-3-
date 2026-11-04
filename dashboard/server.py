@@ -311,7 +311,27 @@ class LiveBiometricManager:
         if sample.device_name:
             self.device_name = sample.device_name
 
-        hr_val = float(sample.hr)
+        # Physiological validation and byte-swap recovery
+        hr_input = float(sample.hr)
+        if hr_input > 240.0:
+            # Detect 16-bit byte-swap endianness bug (e.g. 80 BPM received as 0x5000 = 20,480 BPM)
+            if hr_input <= 65535.0:
+                int_val = int(round(hr_input))
+                swapped = ((int_val & 0xFF) << 8) | ((int_val >> 8) & 0xFF)
+                if 35.0 <= swapped <= 230.0:
+                    hr_val = float(swapped)
+                elif 300.0 <= hr_input <= 2000.0:
+                    # RR-interval in ms (e.g. 800 ms -> 75 BPM)
+                    hr_val = float(np.clip(60000.0 / hr_input, 40.0, 200.0))
+                else:
+                    # Raw photodiode ADC counts (~20,000) or out-of-range sensor noise:
+                    hr_val = float(self.hr_raw[-1]) if (self.hr_raw and 35.0 <= self.hr_raw[-1] <= 220.0) else 75.0
+            else:
+                hr_val = 75.0
+        elif hr_input < 30.0:
+            hr_val = float(self.hr_raw[-1]) if (self.hr_raw and 35.0 <= self.hr_raw[-1] <= 220.0) else 70.0
+        else:
+            hr_val = float(np.clip(hr_input, 35.0, 225.0))
 
         # Acceleration & Workload computation
         if sample.acc_mag is not None:
@@ -379,6 +399,8 @@ class LiveBiometricManager:
             base_out = float(hr_val + (workload * 12.0 - 1.0))
             raw_p_m = ode_trajectory + 0.12 * (hr_val - ode_trajectory)
             raw_p_v = 4.2
+
+        base_out = max(40.0, min(220.0, base_out))
 
         # Dynamic SQI Fusion: smoothly rely on ODE when sensor is corrupted
         alpha = min(1.0, max(0.15, sqi))
@@ -584,6 +606,33 @@ def get_live_status():
         "last_packet_age_s": round(time.time() - live_manager.last_packet_time, 1) if live_manager.last_packet_time > 0 else None,
         "local_ingest_endpoint": "http://10.168.207.145:8000/api/live/ingest"
     })
+
+@app.get("/api/live/ble_scan")
+async def get_live_ble_scan():
+    """Scan for nearby and Windows-paired BLE devices using bleak."""
+    devices_list = []
+    try:
+        import bleak
+        devices = await bleak.BleakScanner.discover(timeout=4.0, return_adv=True)
+        for address, (device, adv) in devices.items():
+            name = device.name or adv.local_name or "Unknown BLE Device"
+            services = [str(s).lower() for s in (adv.service_uuids or [])]
+            has_hr = any("180d" in s for s in services)
+            is_samsung = any(kw in name.lower() for kw in ["galaxy", "samsung", "watch", "gear"])
+            devices_list.append({
+                "name": name,
+                "address": address,
+                "rssi": adv.rssi,
+                "has_hr_service": has_hr,
+                "is_samsung": is_samsung,
+                "services": services
+            })
+    except Exception as e:
+        devices_list.append({"name": "Scan error", "address": "", "error": str(e)})
+
+    # Sort so Samsung / Watch / Heart Rate devices appear first
+    devices_list.sort(key=lambda d: (d.get("is_samsung", False), d.get("has_hr_service", False)), reverse=True)
+    return JSONResponse(content={"devices": devices_list})
 
 @app.get("/api/benchmarks")
 def get_benchmarks():

@@ -63,8 +63,30 @@ def parse_heart_rate_packet(data: bytearray) -> dict:
         hr = data[offset]
         offset += 1
     else:
-        hr = data[offset] | (data[offset + 1] << 8)
+        hr_le = data[offset] | (data[offset + 1] << 8)
+        hr_be = (data[offset] << 8) | data[offset + 1]
+        if 35 <= hr_le <= 230:
+            hr = hr_le
+        elif 35 <= hr_be <= 230:
+            hr = hr_be
+        else:
+            # Check byte swap
+            swapped = ((hr_le & 0xFF) << 8) | ((hr_le >> 8) & 0xFF)
+            if 35 <= swapped <= 230:
+                hr = swapped
+            elif 35 <= data[offset] <= 230:
+                hr = data[offset]
+            else:
+                hr = 75.0
         offset += 2
+
+    # Physiological clamp: human heart rate cannot be 20,000+ BPM
+    if hr > 240 or hr < 30:
+        if 10000 <= hr <= 65535:
+            swapped = ((int(hr) & 0xFF) << 8) | ((int(hr) >> 8) & 0xFF)
+            hr = swapped if (35 <= swapped <= 230) else 75.0
+        else:
+            hr = max(40.0, min(220.0, float(hr)))
 
     energy = None
     if energy_present and len(data) >= offset + 2:

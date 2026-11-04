@@ -974,16 +974,22 @@
                   <button id="btnPairBluetoothWatch" class="btn btn-primary" style="padding: 10px 22px;">
                     <span>🔍 Scan &amp; Pair Smartwatch</span>
                   </button>
+                  <button id="btnCheckWindowsBLE" class="btn btn-secondary" style="padding: 10px 18px;">
+                    <span>💻 Detect Windows Paired Watch</span>
+                  </button>
                   <button id="btnDisconnectWatch" class="btn btn-secondary" style="display: none; padding: 10px 18px;">
                     <span>❌ Disconnect</span>
                   </button>
                 </div>
+                <div id="windowsBleResults" style="display: none; margin-bottom: 14px; font-size: 0.82rem; padding: 12px 14px; background: rgba(6, 9, 17, 0.7); border-radius: 6px; border: 1px solid var(--border-subtle);"></div>
                 <div id="bleStatusBox" style="font-size: 0.82rem; padding: 12px 14px; background: rgba(6, 9, 17, 0.6); border-radius: 6px; border: 1px solid var(--border-subtle); color: var(--text-secondary);">
                   <span>Ready to pair. Tap "Scan &amp; Pair Smartwatch" and choose your Samsung Galaxy Watch, Polar, or Garmin from the Chrome/Edge device picker.</span>
                 </div>
               </div>
-              <div class="callout callout-info" style="font-size: 0.8rem; margin: 0;">
-                <strong>Supported Devices:</strong> Samsung Galaxy Watch 4/5/6/7 &amp; Ultra (via Wear OS Heart Rate Broadcaster app or standard BLE HR broadcast), Polar H10/Verity, Garmin wearables, Apple Watch (via BLE transmitter apps), and any standard Bluetooth SIG GATT Heart Rate device.
+              <div class="callout callout-info" style="font-size: 0.8rem; margin: 0; line-height: 1.5;">
+                <strong>⚠️ Why your Galaxy Watch might not appear or broadcast:</strong>
+                Samsung Galaxy Watches (Watch4/5/6/7) run Wear OS. When paired to a Windows laptop, Windows connects for calls/audio. Samsung Health does <em>not</em> broadcast standard open Bluetooth GATT Heart Rate packets by default.<br>
+                👉 <strong>Quick Setup:</strong> On your watch, open Google Play Store &rarr; install <strong>"Heart Rate Broadcaster"</strong> or <strong>"Wear BLE HR"</strong> (free) &rarr; tap <strong>Start</strong> &rarr; click <strong>"Scan &amp; Pair Smartwatch"</strong>!
               </div>
             </div>
 
