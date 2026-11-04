@@ -811,14 +811,6 @@ function handleBluetoothHeartRateNotification(event) {
     device_name: state.liveWatch.deviceName
   });
 }
-    hr: hr,
-    acc_x: 0.05,
-    acc_y: 0.10,
-    acc_z: 0.98,
-    ppg_sqi: sqi,
-    device_name: state.liveWatch.deviceName
-  });
-}
 
 function onBluetoothDisconnected() {
   state.liveWatch.connected = false;
