@@ -797,7 +797,29 @@ async function connectWebBluetooth() {
     state.liveWatch.deviceName = device.name || "Samsung Galaxy Watch";
     state.liveWatch.connectedDevice = state.liveWatch.deviceName;
     state.liveWatch.sessionStartTime = Date.now();
+    state.liveWatch.lastPacketTime = Date.now();
     state.liveWatch.sessionPackets = 0;
+
+    // Start 120s Beacon restart monitor to maintain connection when beacon recycles
+    if (state.liveWatch.beaconMonitorTimer) clearInterval(state.liveWatch.beaconMonitorTimer);
+    state.liveWatch.beaconMonitorTimer = setInterval(() => {
+      if (!state.liveWatch.connected) return;
+      const age = (Date.now() - (state.liveWatch.lastPacketTime || Date.now())) / 1000;
+      if (age >= 3.5 && age < 45.0) {
+        if (DOM.liveDeviceBadge) {
+          DOM.liveDeviceBadge.textContent = '🟡 BEACON STANDBY (TAP WATCH)';
+          DOM.liveDeviceBadge.style.color = '#fbbf24';
+          DOM.liveDeviceBadge.style.borderColor = 'rgba(251, 191, 36, 0.5)';
+        }
+        if (DOM.liveCardStatus) {
+          DOM.liveCardStatus.textContent = '🟡 Beacon Standby (Tap Watch)';
+          DOM.liveCardStatus.className = 'live-card-value text-amber';
+        }
+        if (DOM.liveCardHeartbeat) {
+          DOM.liveCardHeartbeat.textContent = `Awaiting watch beacon (${age.toFixed(0)}s ago - tap 'Restart beacon' on watch if prompted)`;
+        }
+      }
+    }, 1000);
 
     if (btnDisc) btnDisc.style.display = 'inline-block';
     if (btnPair) btnPair.style.display = 'none';
@@ -867,6 +889,7 @@ function handleBluetoothHeartRateNotification(event) {
 
   const sqi = contactDetected ? 0.95 : 0.45;
   state.liveWatch.sessionPackets = (state.liveWatch.sessionPackets || 0) + 1;
+  state.liveWatch.lastPacketTime = Date.now();
 
   postLiveTelemetrySample({
     hr: Math.round(hr * 10) / 10,
@@ -879,6 +902,17 @@ function handleBluetoothHeartRateNotification(event) {
 }
 
 function onBluetoothDisconnected() {
+  // If GATT server is actually still connected (e.g. watch beacon recycling), keep session intact
+  if (state.liveWatch.device && state.liveWatch.device.gatt && state.liveWatch.device.gatt.connected) {
+    console.log('[BLE] GATT server is still connected. Beacon recycling.');
+    return;
+  }
+
+  if (state.liveWatch.beaconMonitorTimer) {
+    clearInterval(state.liveWatch.beaconMonitorTimer);
+    state.liveWatch.beaconMonitorTimer = null;
+  }
+
   const duration = state.liveWatch.sessionStartTime > 0 ? (Date.now() - state.liveWatch.sessionStartTime) / 1000 : 0;
   const packets = state.liveWatch.sessionPackets || (state.clientBuffer ? state.clientBuffer.timesteps.length : 0);
   const is120sTimeout = (duration >= 70 && duration <= 160) || (packets >= 80 && packets <= 160);
