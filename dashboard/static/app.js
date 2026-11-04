@@ -61,6 +61,8 @@ const DOM = {};
 document.addEventListener('DOMContentLoaded', () => {
   cacheDOMElements();
   setupTabs();
+  setupMobileNav();
+  setupReactBitsComponents();
   setupModeSwitcher();
   setupSmartwatchModal();
   setupLiveControlDeck();
@@ -292,29 +294,140 @@ async function initTelemetryWorkstation() {
 }
 
 /**
- * Setup Tab Navigation
+ * Setup Tab Navigation & Universal Switcher
  */
+function switchTab(targetTab) {
+  state.activeTab = targetTab;
+  if (DOM.navTabs) {
+    DOM.navTabs.forEach(t => {
+      if (t.getAttribute('data-tab') === targetTab) t.classList.add('active');
+      else t.classList.remove('active');
+    });
+  }
+
+  const mobileItems = document.querySelectorAll('.mobile-nav-item[data-tab]');
+  mobileItems.forEach(m => {
+    if (m.getAttribute('data-tab') === targetTab) m.classList.add('active');
+    else m.classList.remove('active');
+  });
+
+  if (DOM.tabPanes) {
+    DOM.tabPanes.forEach(p => p.classList.remove('active'));
+  }
+  const pane = document.getElementById(`tab-${targetTab}`);
+  if (pane) pane.classList.add('active');
+
+  if (targetTab === 'telemetry') {
+    if (state.charts.forecast) state.charts.forecast.resize();
+    if (state.charts.workload) state.charts.workload.resize();
+  } else if (targetTab === 'biophysics') {
+    if (state.charts.odeSim) state.charts.odeSim.resize();
+    window.dispatchEvent(new Event('resize'));
+  }
+}
+
 function setupTabs() {
+  if (!DOM.navTabs) return;
   DOM.navTabs.forEach(tab => {
     tab.addEventListener('click', () => {
       const targetTab = tab.getAttribute('data-tab');
-      state.activeTab = targetTab;
-
-      DOM.navTabs.forEach(t => t.classList.remove('active'));
-      DOM.tabPanes.forEach(p => p.classList.remove('active'));
-
-      tab.classList.add('active');
-      const pane = document.getElementById(`tab-${targetTab}`);
-      if (pane) pane.classList.add('active');
-
-      if (targetTab === 'telemetry') {
-        if (state.charts.forecast) state.charts.forecast.resize();
-        if (state.charts.workload) state.charts.workload.resize();
-      } else if (targetTab === 'biophysics') {
-        if (state.charts.odeSim) state.charts.odeSim.resize();
-      }
+      switchTab(targetTab);
     });
   });
+}
+
+function setupMobileNav() {
+  const mobileNavItems = document.querySelectorAll('.mobile-nav-item[data-tab]');
+  mobileNavItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const targetTab = item.getAttribute('data-tab');
+      switchTab(targetTab);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+
+  const mobileBtnWatch = document.getElementById('mobileBtnWatchSetup');
+  if (mobileBtnWatch) {
+    mobileBtnWatch.addEventListener('click', () => {
+      openSmartwatchModal();
+    });
+  }
+}
+
+/**
+ * React Bits Integration: <RippleGrid /> and <Ferrofluid />
+ */
+function setupReactBitsComponents() {
+  // 1. Mount <RippleGrid /> on the ambient cyber background
+  const rippleBg = document.getElementById('rippleGridBackground');
+  if (rippleBg && typeof initRippleGrid === 'function') {
+    try {
+      window.rippleGridInstance = initRippleGrid(rippleBg, {
+        color: '#00f0ff',
+        cellSize: 48,
+        lineWidth: 1.0,
+        glow: 0.75,
+        rippleStrength: 1.15,
+        rippleSpeed: 1.0,
+        autoRipple: 'center',
+        rippleInterval: 3.0,
+        tilt: 28,
+        opacity: 0.42,
+        fade: 0.45,
+        mouseInteraction: true,
+        clickRipple: true
+      });
+      console.log('✓ React Bits <RippleGrid /> mounted successfully');
+    } catch (err) {
+      console.warn('RippleGrid init error:', err);
+    }
+  }
+
+  // 2. Mount <Ferrofluid /> in the Biophysical ODE Lab
+  const ferroContainer = document.getElementById('ferrofluidContainer');
+  if (ferroContainer && typeof initFerrofluid === 'function') {
+    try {
+      window.ferrofluidInstance = initFerrofluid(ferroContainer, {
+        colors: ['#00f0ff', '#38bdf8', '#8b5cf6'],
+        color: '#120f17',
+        scale: 1.8,
+        spikeHeight: 1.25,
+        sharpness: 2.6,
+        fluidity: 0.55,
+        magnetism: 1.15,
+        tilt: 48,
+        speed: 0.5,
+        mouseInteraction: true,
+        clickPulse: true
+      });
+      console.log('✓ React Bits <Ferrofluid /> mounted successfully');
+    } catch (err) {
+      console.warn('Ferrofluid init error:', err);
+    }
+  }
+
+  // Interactive controls for Ferrofluid
+  const btnPulse = document.getElementById('btnFerroPulse');
+  if (btnPulse) {
+    btnPulse.addEventListener('click', () => {
+      if (window.ferrofluidInstance) {
+        window.ferrofluidInstance.triggerPulse(0, 0);
+      }
+    });
+  }
+
+  let ferroBouncy = false;
+  const btnFluidity = document.getElementById('btnFerroFluidity');
+  if (btnFluidity) {
+    btnFluidity.addEventListener('click', () => {
+      ferroBouncy = !ferroBouncy;
+      const text = btnFluidity.querySelector('span');
+      if (text) text.textContent = ferroBouncy ? '⚡ Mode: Bouncy (0.9)' : '🔄 Mode: Viscous (0.4)';
+      if (window.ferrofluidInstance) {
+        window.ferrofluidInstance.triggerPulse(0, 0);
+      }
+    });
+  }
 }
 
 /**
@@ -1115,6 +1228,11 @@ function stopSimulatorStream() {
 }
 
 async function postLiveTelemetrySample(payload) {
+  // Trigger biological heartbeat ripple on RippleGrid background
+  if (window.rippleGridInstance && typeof window.rippleGridInstance.triggerHeartbeatRipple === 'function') {
+    window.rippleGridInstance.triggerHeartbeatRipple(0.85);
+  }
+
   try {
     const res = await fetch('/api/live/ingest', {
       method: 'POST',

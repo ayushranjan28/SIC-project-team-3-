@@ -4,14 +4,14 @@
    ========================================================================== */
 
 :root {
-  --bg-base: #060911;
-  --bg-surface: #0b1120;
-  --bg-card: rgba(15, 23, 42, 0.75);
-  --bg-card-hover: rgba(22, 33, 58, 0.88);
-  --bg-elevated: rgba(30, 41, 59, 0.65);
-  --border-subtle: rgba(148, 163, 184, 0.12);
-  --border-accent: rgba(56, 189, 248, 0.28);
-  --border-glow: rgba(0, 240, 255, 0.45);
+  --bg-base: #0c0a14;
+  --bg-surface: #120f17;
+  --bg-card: rgba(22, 18, 32, 0.82);
+  --bg-card-hover: rgba(32, 26, 48, 0.94);
+  --bg-elevated: rgba(40, 32, 60, 0.72);
+  --border-subtle: rgba(168, 85, 247, 0.18);
+  --border-accent: rgba(0, 240, 255, 0.35);
+  --border-glow: rgba(0, 240, 255, 0.5);
 
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
@@ -19,11 +19,12 @@
 
   --accent-cyan: #00f0ff;
   --accent-sky: #38bdf8;
-  --accent-blue: #2563eb;
+  --accent-blue: #3b82f6;
   --accent-emerald: #10b981;
   --accent-rose: #f43f5e;
   --accent-amber: #fbbf24;
-  --accent-purple: #8b5cf6;
+  --accent-purple: #a855f7;
+  --accent-violet: #8b5cf6;
 
   --font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', Consolas, monospace;
@@ -33,8 +34,8 @@
   --radius-lg: 20px;
   --radius-full: 9999px;
 
-  --shadow-card: 0 10px 30px -10px rgba(0, 0, 0, 0.65), 0 0 1px 1px rgba(255, 255, 255, 0.05);
-  --shadow-glow: 0 0 25px rgba(0, 240, 255, 0.25);
+  --shadow-card: 0 10px 30px -10px rgba(0, 0, 0, 0.75), 0 0 1px 1px rgba(168, 85, 247, 0.12);
+  --shadow-glow: 0 0 30px rgba(0, 240, 255, 0.28);
   --transition-fast: 0.18s ease;
   --transition-normal: 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -47,12 +48,23 @@
 
 body {
   font-family: var(--font-family);
-  background: radial-gradient(circle at 15% 15%, #0f1c3f 0%, var(--bg-base) 60%);
+  background: radial-gradient(circle at 20% 10%, #1a1429 0%, var(--bg-surface) 45%, var(--bg-base) 100%);
   color: var(--text-primary);
   min-height: 100vh;
   line-height: 1.5;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+}
+
+/* RippleGrid Interactive WebGL2 Cyber Background */
+.ripple-grid-bg {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: auto;
+  opacity: 0.45;
 }
 
 /* Background Ambient Lighting */
@@ -69,7 +81,7 @@ body {
   right: -100px;
   width: 550px;
   height: 550px;
-  background: radial-gradient(circle, rgba(0, 240, 255, 0.12), transparent 70%);
+  background: radial-gradient(circle, rgba(0, 240, 255, 0.14), transparent 70%);
 }
 
 .ambient-emerald {
@@ -77,7 +89,7 @@ body {
   left: 10%;
   width: 650px;
   height: 650px;
-  background: radial-gradient(circle, rgba(16, 185, 129, 0.08), transparent 70%);
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.12), transparent 70%);
 }
 
 .app-container {
@@ -2143,36 +2155,457 @@ footer.app-footer {
   animation: fadeIn 0.3s ease-in-out;
 }
 
-.ble-timeout-box {
-  background: rgba(251, 191, 36, 0.1);
-  border: 1px solid rgba(251, 191, 36, 0.4);
-  border-radius: 6px;
-  padding: 12px 14px;
-  color: #ffffff;
-  line-height: 1.5;
+/* Ferrofluid Showcase Card & Canvas */
+.ferrofluid-showcase-card {
+  margin-top: 24px;
+  background: linear-gradient(180deg, rgba(26, 20, 38, 0.92) 0%, rgba(18, 15, 23, 0.98) 100%);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.8), 0 0 35px rgba(168, 85, 247, 0.16);
+}
+
+.ferrofluid-controls-quick {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ferrofluid-canvas-wrapper {
+  position: relative;
+  width: 100%;
+  height: 400px;
+  min-height: 300px;
+  background: #120f17;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ferrofluid-touch-hint {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(18, 15, 23, 0.82);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: 9999px;
+  padding: 6px 16px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #e2e8f0;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+}
+
+/* Mobile Bottom Navigation Bar */
+.mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: rgba(18, 15, 23, 0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(168, 85, 247, 0.28);
+  z-index: 9999;
+  padding: 0 12px;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  justify-content: space-around;
+  align-items: center;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.75);
+}
+
+.mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 12px;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-nav-item.active {
+  color: var(--accent-cyan);
+  background: rgba(0, 240, 255, 0.12);
+}
+
+.mobile-nav-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.mobile-nav-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
 }
 
 /* ==========================================================================
-   Responsive Adaptations
+   Comprehensive Mobile & Tablet Responsive Overhaul
    ========================================================================== */
-@media (max-width: 768px) {
-  .app-container {
-    padding: 16px 14px 40px 14px;
+
+@media (max-width: 992px) {
+  .ode-playground-grid {
+    grid-template-columns: 1fr;
   }
+  .live-status-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  /* Mobile Bottom Nav is Active */
+  .mobile-bottom-nav {
+    display: flex;
+  }
+
+  .app-container {
+    padding: 12px 12px 86px 12px !important;
+  }
+
+  /* Header compact mobile adaptation */
   header.app-header {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(168, 85, 247, 0.18);
   }
+
+  .brand-section {
+    width: 100%;
+  }
+
+  .brand-titles h1 {
+    font-size: 1.15rem;
+  }
+
+  .brand-titles p {
+    font-size: 0.76rem;
+    line-height: 1.35;
+  }
+
   .header-badges {
-    align-items: flex-start;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 6px;
   }
+
+  .header-badges .chip-item {
+    font-size: 0.72rem;
+    padding: 4px 8px;
+  }
+
+  .btn-watch-pair {
+    width: 100%;
+    justify-content: center;
+    padding: 11px 16px;
+    font-size: 0.88rem;
+    min-height: 44px;
+  }
+
+  /* Top Nav Tabs scrollable horizontally on mobile */
+  .nav-tabs {
+    display: flex;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    gap: 6px;
+    padding-bottom: 6px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .nav-tab {
+    padding: 8px 14px;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+  }
+
+  /* Mode Selector Deck full width */
+  .stream-mode-deck {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .mode-selector-group {
+    display: flex;
+    width: 100%;
+  }
+
+  .mode-pill {
+    flex: 1;
+    justify-content: center;
+    padding: 10px 12px;
+    font-size: 0.8rem;
+    text-align: center;
+  }
+
+  .mode-status-info {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* Live Ingestion Control Deck */
+  .live-control-deck {
+    padding: 14px;
+  }
+
+  .live-deck-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .live-deck-actions {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .live-deck-actions .btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+    font-size: 0.86rem;
+  }
+
+  .live-status-cards {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .live-ode-calibration-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .live-ode-actions {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .live-ode-actions .btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 42px;
+  }
+
+  /* KPI Metrics: 2-column mobile card grid */
+  .metrics-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .metric-card {
+    padding: 12px 10px;
+  }
+
+  .metric-title {
+    font-size: 0.68rem;
+    margin-bottom: 4px;
+  }
+
+  .metric-value-box {
+    margin-bottom: 4px;
+  }
+
+  .metric-value {
+    font-size: 1.35rem;
+  }
+
+  .metric-unit {
+    font-size: 0.72rem;
+  }
+
+  .metric-footer {
+    font-size: 0.66rem;
+  }
+
+  /* Charts */
   .main-chart-box {
-    height: 280px;
+    height: 250px;
   }
+
   .sub-chart-box {
-    height: 110px;
+    height: 100px;
   }
+
+  .viz-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .trace-legend-chips {
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: 4px;
+  }
+
+  /* Interactive Controls Card */
+  .controls-deck {
+    padding: 14px;
+  }
+
+  .controls-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .preset-scenario-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+    width: 100%;
+  }
+
+  .btn-scenario {
+    padding: 8px 10px;
+    font-size: 0.74rem;
+    justify-content: center;
+  }
+
+  .playback-btn-group {
+    display: flex;
+    width: 100%;
+  }
+
+  .playback-btn-group .btn {
+    flex: 1;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .sliders-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  /* Data Difference Section & Rolling Table */
+  .data-diff-section {
+    padding: 14px;
+  }
+
+  .diff-kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .diff-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -14px;
+    padding: 0 14px;
+  }
+
+  .diff-stream-table {
+    min-width: 620px;
+  }
+
+  /* Ferrofluid canvas mobile height */
+  .ferrofluid-canvas-wrapper {
+    height: 320px;
+  }
+
+  .ferrofluid-controls-quick {
+    width: 100%;
+    margin-top: 8px;
+    display: flex;
+  }
+
+  .ferrofluid-controls-quick .btn {
+    flex: 1;
+    min-height: 40px;
+    justify-content: center;
+  }
+
+  /* Modal Mobile Bottom Sheet */
+  .modal-backdrop {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  .modal-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 22px 22px 0 0 !important;
+    max-height: 86vh !important;
+    margin: 0 !important;
+    animation: slideUpSheet 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal-header {
+    padding: 16px 18px 12px 18px;
+    position: sticky;
+    top: 0;
+    background: var(--bg-surface);
+    z-index: 10;
+  }
+
+  .modal-body {
+    padding: 16px 18px 24px 18px;
+  }
+
   .figures-grid {
     grid-template-columns: 1fr;
+  }
+
+  .auto-profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* App Footer adjustments */
+  footer.app-footer {
+    flex-direction: column;
+    text-align: center;
+    gap: 6px;
+    padding-bottom: 24px;
+  }
+}
+
+@keyframes slideUpSheet {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand-titles h1 {
+    font-size: 1.05rem;
+  }
+  .metric-value {
+    font-size: 1.2rem;
   }
 }

@@ -9,11 +9,16 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="components/RippleGrid.css">
+  <link rel="stylesheet" href="components/Ferrofluid.css">
   <!-- Offline Standalone Chart.js Bundle -->
   <script src="vendor/chart.umd.js"></script>
+  <script src="components/RippleGrid.js"></script>
+  <script src="components/Ferrofluid.js"></script>
 </head>
 <body>
-  <!-- Ambient background lighting -->
+  <!-- Ambient background lighting & React Bits RippleGrid -->
+  <div id="rippleGridBackground" class="ripple-grid-bg" aria-hidden="true"></div>
   <div class="ambient-glow ambient-cyan"></div>
   <div class="ambient-glow ambient-emerald"></div>
 
@@ -966,6 +971,32 @@
           </div>
         </div>
 
+        <!-- React Bits Ferrofluid: BioActive Sensor Magnetohydrodynamics & Fluid Simulation -->
+        <div class="panel-full-card ferrofluid-showcase-card">
+          <div class="panel-card-header">
+            <div>
+              <div class="title-with-pill">
+                <h2>🌊 BioActive Sensor Fluid &amp; Magnetohydrodynamic Pulse Lab</h2>
+                <span class="badge badge-purple">React Bits &bull; WebGL2 Ferrofluid</span>
+              </div>
+              <p>Raymarched interactive ferrofluid physics simulating blood rheology, optical wave reflection, and sensor magnetic pulse propagation.</p>
+            </div>
+            <div class="ferrofluid-controls-quick">
+              <button id="btnFerroPulse" class="btn btn-primary btn-sm">
+                <span>⚡ Send Magnetic Pulse</span>
+              </button>
+              <button id="btnFerroFluidity" class="btn btn-secondary btn-sm">
+                <span>🔄 Toggle Fluidity</span>
+              </button>
+            </div>
+          </div>
+          <div class="ferrofluid-canvas-wrapper" id="ferrofluidContainer">
+            <div class="ferrofluid-touch-hint">
+              <span>👆 Touch, drag, or click to raise magnetic spikes and propagate pulse waves</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Dimensional Analysis and Guarantee Card -->
         <div class="guarantee-grid">
           <div class="guarantee-card">
@@ -1254,6 +1285,26 @@
       </div>
     </footer>
   </div>
+
+  <!-- Mobile Bottom Navigation Bar (Visible on mobile/tablet screens) -->
+  <nav class="mobile-bottom-nav" aria-label="Mobile Navigation">
+    <button class="mobile-nav-item active" data-tab="telemetry">
+      <span class="mobile-nav-icon">📈</span>
+      <span class="mobile-nav-label">Live</span>
+    </button>
+    <button class="mobile-nav-item" data-tab="biophysics">
+      <span class="mobile-nav-icon">🔬</span>
+      <span class="mobile-nav-label">Biophysics</span>
+    </button>
+    <button class="mobile-nav-item" data-tab="benchmarks">
+      <span class="mobile-nav-icon">🏆</span>
+      <span class="mobile-nav-label">Benchmarks</span>
+    </button>
+    <button class="mobile-nav-item" id="mobileBtnWatchSetup">
+      <span class="mobile-nav-icon">⌚</span>
+      <span class="mobile-nav-label">Watch</span>
+    </button>
+  </nav>
 
   <script src="app.js"></script>
 </body>
